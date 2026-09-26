@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <title>Tablet Studio</title>
+  <defs>
+    <linearGradient id="ts-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f8dff"/>
+      <stop offset="1" stop-color="#3b2fb8"/>
+    </linearGradient>
+    <radialGradient id="ts-shine" cx="0.22" cy="0.12" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.30"/>
+      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ts-page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#eef2ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#ts-bg)"/>
+  <rect width="512" height="512" rx="112" fill="url(#ts-shine)"/>
+  <g transform="rotate(-7 258 262)">
+    <path d="M176 118 H322 L382 178 V398 a28 28 0 0 1 -28 28 H176 a28 28 0 0 1 -28 -28 V146 a28 28 0 0 1 28 -28 Z" fill="#1b1463" opacity="0.30" transform="translate(12 18)"/>
+    <path d="M176 118 H322 L382 178 V398 a28 28 0 0 1 -28 28 H176 a28 28 0 0 1 -28 -28 V146 a28 28 0 0 1 28 -28 Z" fill="url(#ts-page)"/>
+    <path d="M322 118 V154 a24 24 0 0 0 24 24 H382 Z" fill="#c7d2fe"/>
+    <g stroke="#d9e2ff" stroke-width="7" stroke-linecap="round">
+      <line x1="186" y1="222" x2="344" y2="222"/>
+      <line x1="186" y1="280" x2="344" y2="280"/>
+      <line x1="186" y1="338" x2="344" y2="338"/>
+      <line x1="186" y1="390" x2="300" y2="390"/>
+    </g>
+    <path d="M184 318 H338" stroke="#facc15" stroke-width="34" opacity="0.92"/>
+    <path d="M182 306 C 204 244, 236 232, 232 276 C 229 306, 250 322, 270 296 C 288 272, 296 246, 314 262 C 330 277, 318 312, 344 308" fill="none" stroke="#15204a" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

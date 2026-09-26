@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <title>Tablet Studio · Apuntes</title>
+  <meta name="description" content="Apuntes manuscritos y PDF anotados, 100% sin conexión y privados.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f8fafc">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0f172a">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Tablet Studio">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/logo.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="64x64" href="icons/favicon-64.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/app.css">
+  <script>
+    // Tema aplicado antes de pintar para evitar el destello blanco en modo oscuro.
+    (function () {
+      try {
+        var s = JSON.parse(localStorage.getItem('ts2.settings') || '{}');
+        var t = s.theme || 'auto';
+        if (t === 'auto') t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <div id="app">
+    <!-- ===================== BIBLIOTECA ===================== -->
+    <section id="screen-library" class="screen" aria-label="Biblioteca">
+      <header class="lib-header">
+        <div class="lib-brand">
+          <img src="icons/logo.svg" alt="" width="34" height="34">
+          <span>Tablet Studio</span>
+        </div>
+        <nav class="lib-tabs" role="tablist" aria-label="Secciones">
+          <button class="lib-tab active" data-tab="docs" role="tab" aria-selected="true">Documentos</button>
+          <button class="lib-tab" data-tab="favs" role="tab" aria-selected="false">Favoritos</button>
+          <button class="lib-tab" data-tab="recent" role="tab" aria-selected="false">Recientes</button>
+          <button class="lib-tab" data-tab="trash" role="tab" aria-selected="false">Papelera</button>
+        </nav>
+        <div class="lib-actions">
+          <label class="search-box">
+            <span class="icon" data-icon="search"></span>
+            <input id="lib-search" type="search" placeholder="Buscar" autocomplete="off" enterkeyhint="search" aria-label="Buscar documentos">
+          </label>
+          <button id="btn-lib-select" class="btn btn-ghost" title="Seleccionar varios"><span class="icon" data-icon="checkSquare"></span><span class="btn-label">Seleccionar</span></button>
+          <button id="btn-lib-new" class="btn btn-primary"><span class="icon" data-icon="plus"></span><span class="btn-label">Nuevo</span></button>
+          <button id="btn-lib-settings" class="btn btn-icon" title="Ajustes" aria-label="Ajustes"><span class="icon" data-icon="settings"></span></button>
+        </div>
+      </header>
+
+      <div id="lib-banner-slot"></div>
+
+      <div class="lib-subbar">
+        <nav id="lib-breadcrumbs" class="breadcrumbs" aria-label="Ruta"></nav>
+        <div class="lib-subbar-right">
+          <span id="lib-stats" class="muted"></span>
+          <button id="btn-lib-sort" class="btn btn-ghost btn-sm"><span class="icon" data-icon="sort"></span><span id="lib-sort-label">Fecha</span></button>
+          <button id="btn-lib-empty-trash" class="btn btn-danger-ghost btn-sm" hidden><span class="icon" data-icon="trash"></span>Vaciar papelera</button>
+        </div>
+      </div>
+
+      <main id="lib-content" class="lib-content">
+        <div id="lib-grid" class="lib-grid" role="list"></div>
+        <section id="lib-text-results" class="text-results" aria-label="Coincidencias en el texto de los PDF" hidden></section>
+        <div id="lib-empty" class="lib-empty" hidden></div>
+      </main>
+
+      <div id="lib-selection-bar" class="selection-bar" hidden>
+        <span id="lib-sel-count" class="sel-count">0 seleccionados</span>
+        <button class="btn btn-ghost" data-sel="all"><span class="icon" data-icon="checkSquare"></span>Todo</button>
+        <button class="btn btn-ghost" data-sel="move"><span class="icon" data-icon="folderInput"></span>Mover</button>
+        <button class="btn btn-ghost" data-sel="duplicate"><span class="icon" data-icon="copy"></span>Duplicar</button>
+        <button class="btn btn-ghost" data-sel="fav"><span class="icon" data-icon="star"></span>Favorito</button>
+        <button class="btn btn-ghost" data-sel="restore" hidden><span class="icon" data-icon="restore"></span>Restaurar</button>
+        <button class="btn btn-danger-ghost" data-sel="delete"><span class="icon" data-icon="trash"></span>Eliminar</button>
+        <button class="btn btn-ghost" data-sel="cancel"><span class="icon" data-icon="x"></span>Cancelar</button>
+      </div>
+    </section>
+
+    <!-- ===================== EDITOR ===================== -->
+    <section id="screen-editor" class="screen" aria-label="Editor" hidden>
+      <div id="ed-tabs" class="ed-tabs" role="tablist" aria-label="Documentos abiertos" hidden></div>
+      <header class="ed-toolbar">
+        <div class="ed-left">
+          <button id="btn-ed-back" class="btn btn-icon" title="Volver a la biblioteca" aria-label="Volver"><span class="icon" data-icon="arrowLeft"></span></button>
+          <button id="btn-ed-title" class="ed-title" title="Renombrar"><span id="ed-title-text">Documento</span></button>
+          <span id="ed-save-state" class="save-state" title="Estado del guardado"></span>
+        </div>
+        <div class="ed-center">
+          <div id="ed-tools" class="ed-tools" role="toolbar" aria-label="Herramientas"></div>
+        </div>
+        <div class="ed-right">
+          <button id="btn-ed-search" class="btn btn-icon" title="Buscar en el PDF (Ctrl+F)" aria-label="Buscar en el PDF" hidden><span class="icon" data-icon="search"></span></button>
+          <button id="btn-ed-undo" class="btn btn-icon" title="Deshacer (Ctrl+Z · toque con 2 dedos)" aria-label="Deshacer" disabled><span class="icon" data-icon="undo"></span></button>
+          <button id="btn-ed-redo" class="btn btn-icon" title="Rehacer (Ctrl+Y)" aria-label="Rehacer" disabled><span class="icon" data-icon="redo"></span></button>
+          <button id="btn-ed-finger" class="btn btn-icon finger-toggle" title="Modo dedo" aria-label="Modo dedo"><span class="icon" data-icon="hand"></span></button>
+          <button id="btn-ed-dual" class="btn btn-icon" title="Pantalla dual" aria-label="Pantalla dual"><span class="icon" data-icon="split"></span></button>
+          <button id="btn-ed-bookmark" class="btn btn-icon" title="Marcar esta página" aria-label="Marcar esta página" aria-pressed="false"><span class="icon" data-icon="bookmark"></span></button>
+          <button id="btn-ed-pages" class="btn btn-ghost btn-pages" title="Páginas, marcadores e índice"><span class="icon" data-icon="pages"></span><span id="ed-page-indicator">1/1</span></button>
+          <button id="btn-ed-more" class="btn btn-icon" title="Más opciones" aria-label="Más opciones"><span class="icon" data-icon="more"></span></button>
+        </div>
+      </header>
+      <div id="ed-banner-slot"></div>
+      <div id="ed-search-slot"></div>
+      <div id="ed-body" class="ed-body"></div>
+    </section>
+  </div>
+
+  <div id="popover-root"></div>
+  <div id="modal-root"></div>
+  <div id="toast-root" class="toast-root" aria-live="polite"></div>
+
+  <div id="boot-screen" class="boot-screen">
+    <img src="icons/logo.svg" alt="" width="84" height="84">
+    <div class="boot-text">Cargando…</div>
+  </div>
+
+  <noscript>Esta aplicación necesita JavaScript.</noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

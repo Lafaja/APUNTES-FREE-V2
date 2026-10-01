@@ -1,12 +1,19 @@
 // Barra de herramientas del editor y paneles de ajustes de cada herramienta.
 
-import { settings, INK_COLORS, HIGHLIGHT_COLORS } from '../core/settings.js';
+import { settings, INK_COLORS, HIGHLIGHT_COLORS, formatLength } from '../core/settings.js';
 import { uid } from '../core/util.js';
 import { h, iconEl, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { openPopover, closePopover } from '../ui/popover.js';
 import { BRUSHES, drawLiveStroke } from '../render/ink.js';
 import { SHAPES } from './tools.js';
+import { createColorPicker } from '../ui/colorpicker.js';
+
+/** Guarda un color en "mis colores" (máximo 16, sin repetir los de serie). */
+function rememberColor(c) {
+  const fav = settings.get('favColors');
+  if (!fav.includes(c) && !INK_COLORS.includes(c) && !HIGHLIGHT_COLORS.includes(c)) settings.set('favColors', [...fav, c].slice(-16));
+}
 
 const BRUSH_ICONS = { pen: 'pen', fountain: 'fountain', brush: 'brush', pencil: 'pencil', highlighter: 'highlighter' };
 const PEN_SIZES = [1.2, 2.2, 3.5, 6];
@@ -186,25 +193,34 @@ export class Toolbar {
         });
         grid.appendChild(sw);
       }
-      const addBtn = h('label.swatch.add', { title: 'Color personalizado' }, iconEl('plus'));
-      const input = h('input', { type: 'color', value: cur.c, style: { position: 'absolute', opacity: '0', width: '1px', height: '1px', pointerEvents: 'none' } });
-      input.addEventListener('change', () => {
-        const c = input.value.toLowerCase();
-        const fav = settings.get('favColors');
-        if (!fav.includes(c) && !INK_COLORS.includes(c) && !HIGHLIGHT_COLORS.includes(c)) settings.set('favColors', [...fav, c].slice(-16));
-        this.updatePreset(id, { c });
-        renderColors();
-        drawPreview();
-      });
-      addBtn.appendChild(input);
+      const addBtn = h('button.swatch.add', { type: 'button', title: 'Color personalizado' }, iconEl('plus'));
       grid.appendChild(addBtn);
+      colorsWrap.append(grid);
       if (favs.length) {
         const edit = h('button.btn.btn-ghost.btn-sm', { type: 'button', style: { marginTop: '8px' } }, 'Editar colores');
         edit.addEventListener('click', () => grid.classList.toggle('editing'));
-        colorsWrap.append(grid, edit);
-      } else {
-        colorsWrap.append(grid);
+        colorsWrap.append(edit);
       }
+      addBtn.addEventListener('click', () => {
+        if (colorsWrap.querySelector('.color-picker')) return;
+        addBtn.classList.add('active');
+        const picker = createColorPicker({
+          value: getP().c,
+          // Vista previa en vivo en la pluma (sin rehacer el panel para no cortar el arrastre).
+          onInput: c => {
+            this.updatePreset(id, { c });
+            drawPreview();
+          },
+          onSave: c => {
+            rememberColor(c);
+            this.updatePreset(id, { c });
+            renderColors();
+            drawPreview();
+          },
+          onCancel: () => renderColors()
+        });
+        colorsWrap.appendChild(picker.el);
+      });
     };
 
     // Grosor
@@ -215,10 +231,12 @@ export class Toolbar {
       const isHl = cur.t === 'highlighter';
       const presetsS = isHl ? HL_SIZES : PEN_SIZES;
       const slider = h('input', { type: 'range', min: isHl ? 4 : 0.5, max: isHl ? 48 : 16, step: isHl ? 1 : 0.1, value: cur.w });
-      const val = h('span.size-value', cur.w.toFixed(isHl ? 0 : 1));
+      // Grosor real del trazo tal y como se ve (perfect-freehand dibuja ~√2 × tamaño × multiplicador).
+      const visual = w => w * ((BRUSHES[getP().t] || BRUSHES.pen).sizeMul || 1) * Math.SQRT2;
+      const val = h('span.size-value', formatLength(visual(cur.w)));
       slider.addEventListener('input', () => {
         const w = parseFloat(slider.value);
-        val.textContent = w.toFixed(isHl ? 0 : 1);
+        val.textContent = formatLength(visual(w));
         this.updatePreset(id, { w });
         row.querySelectorAll('.size-preset').forEach(b => b.classList.toggle('active', Math.abs(parseFloat(b.dataset.w) - w) < 0.05));
         drawPreview();
@@ -295,9 +313,9 @@ export class Toolbar {
       seg.appendChild(b);
     }
     const slider = h('input', { type: 'range', min: 6, max: 90, step: 1, value: cfg.size });
-    const val = h('span.size-value', `${cfg.size}`);
+    const val = h('span.size-value', formatLength(cfg.size));
     slider.addEventListener('input', () => {
-      val.textContent = slider.value;
+      val.textContent = formatLength(parseInt(slider.value, 10));
       settings.update('eraser', { size: parseInt(slider.value, 10) });
     });
     const clearBtn = h('button.btn.btn-danger-ghost.btn-block', { type: 'button' }, iconEl('trash'), 'Borrar todo en esta página');
@@ -354,12 +372,34 @@ export class Toolbar {
         });
         grid.appendChild(sw);
       }
+      const addBtn = h('button.swatch.add', { type: 'button', title: 'Color personalizado' }, iconEl('plus'));
+      addBtn.addEventListener('click', () => {
+        if (grid.nextElementSibling && grid.nextElementSibling.classList.contains('color-picker')) return;
+        addBtn.classList.add('active');
+        const picker = createColorPicker({
+          value: cfg().color,
+          onInput: c => settings.update('shape', { color: c }),
+          onSave: c => {
+            rememberColor(c);
+            settings.update('shape', { color: c });
+            picker.el.remove();
+            renderColors();
+            this.render();
+          },
+          onCancel: () => {
+            picker.el.remove();
+            renderColors();
+          }
+        });
+        grid.after(picker.el);
+      });
+      grid.appendChild(addBtn);
     };
     renderColors();
     const slider = h('input', { type: 'range', min: 0.5, max: 14, step: 0.5, value: cfg().w });
-    const val = h('span.size-value', `${cfg().w}`);
+    const val = h('span.size-value', formatLength(cfg().w));
     slider.addEventListener('input', () => {
-      val.textContent = slider.value;
+      val.textContent = formatLength(parseFloat(slider.value));
       settings.update('shape', { w: parseFloat(slider.value) });
     });
     panel.append(

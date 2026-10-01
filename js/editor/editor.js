@@ -389,6 +389,43 @@ export class Editor {
   }
 
   // =====================================================================
+  // Pantalla completa (oculta las barras y pestañas del navegador)
+  // =====================================================================
+
+  bindFullscreen() {
+    const root = document.documentElement;
+    const btn = $('#btn-ed-fullscreen');
+    const supported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+    btn.hidden = !supported;
+    if (!supported) return;
+    btn.addEventListener('click', () => this.toggleFullscreen());
+    const sync = () => {
+      const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+      document.body.classList.toggle('is-fullscreen', on);
+      btn.classList.toggle('active', on);
+      btn.title = on ? 'Salir de pantalla completa' : 'Pantalla completa';
+      btn.innerHTML = icon(on ? 'minimize' : 'maximize');
+    };
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    this._fsRoot = root;
+  }
+
+  async toggleFullscreen() {
+    const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    try {
+      if (on) await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen());
+      else {
+        const el = document.documentElement;
+        if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      }
+    } catch (err) {
+      toast('El navegador no ha permitido la pantalla completa. Instalar la app también quita sus barras.', { type: 'warn', duration: 5000 });
+    }
+  }
+
+  // =====================================================================
   // Marcadores de página
   // =====================================================================
 
@@ -534,6 +571,7 @@ export class Editor {
     $('#btn-ed-search').addEventListener('click', () => this.search.toggle());
     $('#btn-ed-dual').addEventListener('click', e => this.dualMenu(e.currentTarget));
     $('#btn-ed-bookmark').addEventListener('click', () => this.toggleBookmark());
+    this.bindFullscreen();
     $('#btn-ed-pages').addEventListener('click', () => this.openPagesPanel());
     $('#btn-ed-more').addEventListener('click', e => this.openMoreMenu(e.currentTarget));
     $('#ed-save-state').addEventListener('click', () => this.showSaveDetails());

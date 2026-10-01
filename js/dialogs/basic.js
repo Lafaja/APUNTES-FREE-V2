@@ -1,7 +1,7 @@
 // Diálogos: nuevo apunte, carpeta, selector de carpeta y selector de documento.
 
 import { PAPER_SIZES, TEMPLATES, PAPER_COLORS, pageSizeFor, paperSvgDataUri } from '../model/paper.js';
-import { settings } from '../core/settings.js';
+import { settings, formatLength } from '../core/settings.js';
 import { formatDate } from '../core/util.js';
 import { h, iconEl, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
@@ -79,10 +79,10 @@ export function newNoteDialog() {
     clear(spacingWrap);
     if (state.template === 'blank') return;
     const slider = h('input', { type: 'range', min: 16, max: 60, step: 1, value: state.spacing });
-    const val = h('span.size-value', `${state.spacing} px`);
+    const val = h('span.size-value', formatLength(state.spacing));
     slider.addEventListener('input', () => {
       state.spacing = parseInt(slider.value, 10);
-      val.textContent = `${state.spacing} px`;
+      val.textContent = formatLength(state.spacing);
     });
     slider.addEventListener('change', renderTemplates);
     spacingWrap.append(h('span', 'Separación de líneas'), h('div.size-row', slider, val));

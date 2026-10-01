@@ -6,6 +6,8 @@ import { openMenu } from '../ui/popover.js';
 import { renderPageImage } from '../render/thumbs.js';
 import { getOutline } from '../render/pdfnav.js';
 import { TEMPLATES, PAPER_COLORS, paperSvgDataUri } from '../model/paper.js';
+import { formatLength } from '../core/settings.js';
+import { createColorPicker } from '../ui/colorpicker.js';
 
 export function openPagesPanel(editor, pane, { tab = 'pages' } = {}) {
   const session = pane.session;
@@ -301,18 +303,38 @@ export function openPageBackgroundDialog(editor, pane, index = pane.viewer.curre
     });
     colors.appendChild(b);
   }
-  const custom = h('input', { type: 'color', value: state.color, title: 'Otro color', style: { width: '40px', height: '36px', border: '0', background: 'transparent', padding: '0' } });
-  custom.addEventListener('input', () => {
-    state.color = custom.value;
-    colors.querySelectorAll('.color-choice').forEach(x => x.classList.remove('active'));
-    renderTemplates();
+  const custom = h('button.color-choice.add', { type: 'button', title: 'Otro color' }, iconEl('plus'));
+  const pickerSlot = h('div');
+  custom.addEventListener('click', () => {
+    if (pickerSlot.firstChild) return;
+    const before = state.color;
+    const picker = createColorPicker({
+      value: state.color,
+      saveLabel: 'Usar este color',
+      onInput: c => {
+        state.color = c;
+        colors.querySelectorAll('.color-choice').forEach(x => x.classList.remove('active'));
+        renderTemplates();
+      },
+      onSave: c => {
+        state.color = c;
+        pickerSlot.replaceChildren();
+        renderTemplates();
+      },
+      onCancel: () => {
+        state.color = before;
+        pickerSlot.replaceChildren();
+        renderTemplates();
+      }
+    });
+    pickerSlot.appendChild(picker.el);
   });
   colors.appendChild(custom);
   const slider = h('input', { type: 'range', min: 16, max: 60, step: 1, value: state.spacing });
-  const val = h('span.size-value', `${state.spacing} px`);
+  const val = h('span.size-value', formatLength(state.spacing));
   slider.addEventListener('input', () => {
     state.spacing = parseInt(slider.value, 10);
-    val.textContent = `${state.spacing} px`;
+    val.textContent = formatLength(state.spacing);
   });
   slider.addEventListener('change', renderTemplates);
   const scope = h('div.segmented');
@@ -328,7 +350,7 @@ export function openPageBackgroundDialog(editor, pane, index = pane.viewer.curre
   const body = h('div',
     page.pdf ? h('p', 'En las páginas de un PDF el fondo se ve en los márgenes añadidos para tomar notas.') : null,
     h('div.field', h('span', 'Plantilla'), tplGrid),
-    h('div.field', h('span', 'Color'), colors),
+    h('div.field', h('span', 'Color'), colors, pickerSlot),
     h('div.field', h('span', 'Separación'), h('div.size-row', slider, val)),
     h('div.field', h('span', 'Aplicar a'), scope)
   );

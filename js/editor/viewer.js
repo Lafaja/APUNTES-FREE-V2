@@ -21,7 +21,7 @@ const PAD_BOTTOM = 120;
 const PAD_X = 24;
 export const MIN_ZOOM = 0.25;
 export const MAX_ZOOM = 6;
-const PIXEL_BUDGET = 9e6; // píxeles de dispositivo máximos por canvas de página
+const PIXEL_BUDGET = 6e6; // píxeles de dispositivo máximos por canvas de página (menos = repintados más rápidos)
 
 function dprNow() {
   return Math.min(globalThis.devicePixelRatio || 1, 2.5);
@@ -695,14 +695,28 @@ export class DocumentViewer extends Emitter {
     if (!this.paintRaf) this.paintRaf = requestAnimationFrame(() => this.runPaints());
   }
 
+  /**
+   * Mientras el lápiz escribe, los repintados completos (p. ej. tras un zoom) esperan: el lápiz
+   * tiene prioridad y la página se ve con la resolución anterior hasta levantarlo.
+   */
+  setDrawing(on) {
+    this.drawing = !!on;
+    if (!on && this.dirty.size && !this.paintRaf) this.paintRaf = requestAnimationFrame(() => this.runPaints());
+  }
+
   runPaints() {
     this.paintRaf = 0;
     if (this.destroyed) return;
     const start = performance.now();
     const list = [...this.dirty].sort((a, b) => a.priority() - b.priority());
+    let deferred = 0;
     for (let k = 0; k < list.length; k++) {
       const v = list[k];
-      if (k > 0 && performance.now() - start > 10) break;
+      if (this.drawing && v.fullDirty) {
+        deferred++;
+        continue;
+      }
+      if (k > deferred && performance.now() - start > 10) break;
       this.dirty.delete(v);
       if (!v.destroyed) {
         try {
@@ -712,7 +726,7 @@ export class DocumentViewer extends Emitter {
         }
       }
     }
-    if (this.dirty.size) this.paintRaf = requestAnimationFrame(() => this.runPaints());
+    if (this.dirty.size > deferred || (!this.drawing && this.dirty.size)) this.paintRaf = requestAnimationFrame(() => this.runPaints());
   }
 
   // ---------------- Eventos ----------------
@@ -889,7 +903,11 @@ export class DocumentViewer extends Emitter {
       this.scroll.scrollTop = L.tops[a.i] + a.ly * z - f.y;
     }
     this.updateVisible();
-    for (const v of this.views.values()) v.invalidate();
+    // El repintado a la nueva nitidez espera un momento: si el lápiz toca enseguida, entra sin retraso.
+    clearTimeout(this._zoomTimer);
+    this._zoomTimer = setTimeout(() => {
+      for (const v of this.views.values()) v.invalidate();
+    }, 160);
     this.emit('zoom', { zoom: z });
   }
 

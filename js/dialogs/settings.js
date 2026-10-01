@@ -54,6 +54,10 @@ export async function openSettingsDialog(app, section) {
     h('div', { style: { paddingBottom: '12px' } }, segmented([
       { id: 'auto', label: 'Automático' }, { id: 'pan', label: 'Desplazar' }, { id: 'draw', label: 'Dibujar' }
     ], settings.get('fingerMode'), v => settings.set('fingerMode', v))),
+    row('Unidades de medida', 'Para el grosor de plumas, borrador y formas, y la separación de las líneas del papel.', null),
+    h('div', { style: { paddingBottom: '12px' } }, segmented([
+      { id: 'mm', label: 'Milímetros' }, { id: 'cm', label: 'Centímetros' }, { id: 'pt', label: 'Puntos' }, { id: 'px', label: 'Píxeles' }
+    ], settings.get('units'), v => settings.set('units', v))),
     row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto medio segundo: la línea, círculo, rectángulo o triángulo se vuelve perfecto. Si sigues moviéndolo, vuelve a ser trazo a mano.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
     row('Toque con dos dedos = deshacer', 'Y con tres dedos, rehacer. Con un dedo (si el dedo desplaza) se siguen los enlaces del PDF.', switchCtl(settings.get('twoFingerUndo'), v => settings.set('twoFingerUndo', v))),
     row('Añadir página al escribir al final', 'En apuntes, crea una hoja nueva cuando escribes en la parte baja de la última.', switchCtl(settings.get('autoAddPages'), v => settings.set('autoAddPages', v))),

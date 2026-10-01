@@ -272,6 +272,8 @@ export class InputController {
     this.drawPointer = { id: e.pointerId, type: e.pointerType || 'mouse', pageIndex: pt.index, tool, pen: e.pointerType === 'pen' };
     this.mode = 'draw';
     pdfQueue.pause();
+    // Solo la pluma aplaza los repintados (el borrador necesita ver al momento lo que borra).
+    this.viewer.setDrawing(tool === this.editor.tools.pen);
     tool.begin({
       viewer: this.viewer,
       pageIndex: pt.index,
@@ -326,6 +328,7 @@ export class InputController {
     } finally {
       if (d.pen) this.penUntil = Date.now() + PALM_GUARD_MS;
       pdfQueue.resume();
+      this.viewer.setDrawing(false);
     }
     if (d.type === 'touch') this.touches.delete(d.id);
   }
@@ -336,6 +339,7 @@ export class InputController {
     this.drawPointer = null;
     try { d.tool.cancel(); } catch {}
     pdfQueue.resume();
+    this.viewer.setDrawing(false);
     this.mode = 'idle';
   }
 

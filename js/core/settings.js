@@ -40,6 +40,7 @@ const DEFAULTS = {
   backupReminderDays: 7,
   shapeSnap: true, // formas perfectas al mantener el lápiz quieto al final del trazo
   openTabs: [], // pestañas de documentos (ids)
+  units: 'mm', // unidades para mostrar grosores y medidas: 'mm' | 'cm' | 'pt' | 'px'
   splitOrientation: 'auto', // pantalla dual: 'auto' (según el giro) | 'side' | 'stack'
   splitRatio: 0.5
 };
@@ -82,6 +83,7 @@ class Settings extends Emitter {
     if (!['auto', 'light', 'dark'].includes(d.theme)) d.theme = 'auto';
     if (!['auto', 'pan', 'draw'].includes(d.fingerMode)) d.fingerMode = 'auto';
     if (!['auto', 'side', 'stack'].includes(d.splitOrientation)) d.splitOrientation = 'auto';
+    if (!['mm', 'cm', 'pt', 'px'].includes(d.units)) d.units = 'mm';
     d.openTabs = Array.isArray(d.openTabs) ? d.openTabs.filter(id => typeof id === 'string').slice(-12) : [];
     d.splitRatio = Number.isFinite(d.splitRatio) ? Math.min(0.8, Math.max(0.2, d.splitRatio)) : 0.5;
     d.eraser = { mode: d.eraser?.mode === 'precision' ? 'precision' : 'stroke', size: Number.isFinite(d.eraser?.size) ? d.eraser.size : 18 };
@@ -146,6 +148,25 @@ export function applyTheme() {
   const meta = document.querySelectorAll('meta[name="theme-color"]');
   meta.forEach(m => m.setAttribute('content', t === 'dark' ? '#121b2f' : '#ffffff'));
   return t;
+}
+
+// Las medidas internas están en píxeles CSS de la página (96 por pulgada: un A4 mide 794 × 1123).
+export const UNITS = {
+  mm: { label: 'mm', per: 25.4 / 96, decimals: 2 },
+  cm: { label: 'cm', per: 2.54 / 96, decimals: 2 },
+  pt: { label: 'pt', per: 72 / 96, decimals: 1 },
+  px: { label: 'px', per: 1, decimals: 1 }
+};
+
+/** Muestra una medida (en píxeles de página) en las unidades elegidas, p. ej. «0,58 mm». */
+export function formatLength(px, unit = settings.get('units')) {
+  const u = UNITS[unit] || UNITS.mm;
+  const v = px * u.per;
+  // Menos decimales cuando el número es grande (7,4 mm en vez de 7,41 mm).
+  const dec = Math.abs(v) >= 10 ? Math.max(0, u.decimals - 1) : u.decimals;
+  let txt = v.toFixed(dec);
+  if (txt.includes('.')) txt = txt.replace(/0+$/, '').replace(/\.$/, ''); // 0,50 → 0,5 (pero 10 sigue siendo 10)
+  return `${txt.replace('.', ',')} ${u.label}`;
 }
 
 /** ¿El dedo dibuja en este momento? */

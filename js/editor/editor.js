@@ -393,22 +393,23 @@ export class Editor {
   // =====================================================================
 
   bindFullscreen() {
-    const root = document.documentElement;
-    const btn = $('#btn-ed-fullscreen');
+    // Botones en la biblioteca y en el editor (mismo comportamiento).
+    const btns = [...document.querySelectorAll('.fs-toggle')];
     const supported = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
-    btn.hidden = !supported;
+    for (const b of btns) b.hidden = !supported;
     if (!supported) return;
-    btn.addEventListener('click', () => this.toggleFullscreen());
+    for (const b of btns) b.addEventListener('click', () => this.toggleFullscreen());
     const sync = () => {
       const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
       document.body.classList.toggle('is-fullscreen', on);
-      btn.classList.toggle('active', on);
-      btn.title = on ? 'Salir de pantalla completa' : 'Pantalla completa';
-      btn.innerHTML = icon(on ? 'minimize' : 'maximize');
+      for (const b of btns) {
+        b.classList.toggle('active', on);
+        b.title = on ? 'Salir de pantalla completa' : 'Pantalla completa';
+        b.innerHTML = icon(on ? 'minimize' : 'maximize');
+      }
     };
     document.addEventListener('fullscreenchange', sync);
     document.addEventListener('webkitfullscreenchange', sync);
-    this._fsRoot = root;
   }
 
   async toggleFullscreen() {

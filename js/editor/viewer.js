@@ -490,7 +490,9 @@ export class DocumentViewer extends Emitter {
     this.stage.appendChild(this.addBtn);
     this.scroll.append(this.spacer, this.stage);
     this.overlay = h('canvas.viewer-overlay');
-    this.octx = this.overlay.getContext('2d', { desynchronized: true }) || this.overlay.getContext('2d');
+    // Sin "desynchronized": en algunas tablets Android ese modo de baja latencia pinta la capa
+    // transparente en NEGRO y tapa todo el documento al primer toque.
+    this.octx = this.overlay.getContext('2d');
     this.indicator = h('div.floating-indicator');
     this.el.append(this.scroll, this.overlay, this.indicator);
     host.appendChild(this.el);

@@ -126,6 +126,30 @@
   </div>
 
   <noscript>Esta aplicación necesita JavaScript.</noscript>
+  <script>
+    // Vigilante de arranque: si la app no termina de cargar (p. ej. un archivo no llegó), no dejar
+    // «Cargando…» para siempre. «Reparar» vacía solo la caché de archivos de la app; los apuntes
+    // (IndexedDB) no se tocan.
+    setTimeout(function () {
+      var b = document.getElementById('boot-screen');
+      if (!b || b.hidden || b.classList.contains('hide') || b.querySelector('.boot-error')) return;
+      b.innerHTML = '<div class="boot-error"><h1>La app está tardando en cargar</h1>' +
+        '<p>Tus apuntes están a salvo. Prueba a reintentar; si sigue igual, pulsa «Reparar» (vuelve a descargar la app con conexión, sin borrar ningún apunte).</p>' +
+        '<p><button class="btn" type="button" id="boot-retry">Reintentar</button> ' +
+        '<button class="btn btn-primary" type="button" id="boot-repair">Reparar</button></p></div>';
+      document.getElementById('boot-retry').onclick = function () { location.reload(); };
+      document.getElementById('boot-repair').onclick = function () {
+        var jobs = [];
+        if (window.caches) jobs.push(caches.keys().then(function (ks) {
+          return Promise.all(ks.filter(function (k) { return k.indexOf('tablet-studio-v2-') === 0; }).map(function (k) { return caches.delete(k); }));
+        }));
+        if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+          return Promise.all(rs.filter(function (r) { return r.scope.indexOf('/APUNTES-FREE-V2/') !== -1 || location.hostname !== 'lafaja.github.io'; }).map(function (r) { return r.unregister(); }));
+        }));
+        Promise.all(jobs).catch(function () {}).then(function () { location.reload(); });
+      };
+    }, 15000);
+  </script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

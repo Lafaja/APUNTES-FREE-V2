@@ -23,8 +23,10 @@ export const MIN_ZOOM = 0.25;
 export const MAX_ZOOM = 6;
 const PIXEL_BUDGET = 6e6; // píxeles de dispositivo máximos por canvas de página (menos = repintados más rápidos)
 
+// Mínimo 2×: en pantallas de densidad 1–1,5 la tinta se pinta con el doble de detalle (bordes más
+// finos y precisos). Máximo 3× para no disparar la memoria en pantallas muy densas.
 function dprNow() {
-  return Math.min(globalThis.devicePixelRatio || 1, 2.5);
+  return Math.min(Math.max(globalThis.devicePixelRatio || 1, 2), 3);
 }
 
 function releaseCanvas(c) {

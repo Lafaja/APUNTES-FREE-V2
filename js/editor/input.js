@@ -5,6 +5,9 @@
 // - Rechazo de palma: mientras el lápiz está apoyado (y 500 ms después) se ignoran los dedos.
 // - Toque con dos dedos = deshacer; con tres dedos = rehacer.
 // - Toque con un dedo (cuando el dedo desplaza) o Ctrl+clic: sigue los enlaces del PDF.
+// - Mantener pulsado sin moverse: menú circular de herramientas y colores (ver radial.js).
+// - Al dibujar se usa `pointerrawupdate` si existe: los puntos llegan en cuanto el lápiz los
+//   envía, sin esperar al siguiente fotograma (trazo más preciso y con menos retraso).
 
 import { settings, fingerDraws } from '../core/settings.js';
 import { pdfQueue } from '../render/pdf.js';
@@ -40,6 +43,8 @@ export class InputController {
     };
     this.el.addEventListener('pointerdown', this._down);
     this.el.addEventListener('pointermove', this._move);
+    this._raw = e => this.onRawMove(e);
+    if ('onpointerrawupdate' in globalThis) this.el.addEventListener('pointerrawupdate', this._raw);
     this.el.addEventListener('pointerup', this._up);
     this.el.addEventListener('pointercancel', this._cancel);
     this.el.addEventListener('lostpointercapture', this._cancel);
@@ -52,6 +57,7 @@ export class InputController {
     this.stopMomentum();
     this.el.removeEventListener('pointerdown', this._down);
     this.el.removeEventListener('pointermove', this._move);
+    this.el.removeEventListener('pointerrawupdate', this._raw);
     this.el.removeEventListener('pointerup', this._up);
     this.el.removeEventListener('pointercancel', this._cancel);
     this.el.removeEventListener('lostpointercapture', this._cancel);
@@ -88,6 +94,7 @@ export class InputController {
       if (this.drawPointer) return;
       const eraser = e.button === 5 || (e.buttons & 32) === 32 || (e.buttons & 2) === 2;
       this.startDraw(e, eraser ? 'eraser' : null);
+      if (!eraser) this.watchRadialDraw(e);
       return;
     }
 
@@ -120,8 +127,15 @@ export class InputController {
       if (fingerDraws() && !this.editor.isReadOnly()) {
         this.startDraw(e, null);
         if (this.drawPointer) this.drawPointer.startedAt = performance.now();
+        this.watchRadialDraw(e);
       } else {
         this.beginPan(e);
+        this.editor.radial.watch(e, () => {
+          this.touches.clear();
+          this.multiTap = null;
+          this.mode = 'idle';
+          this.stopMomentum();
+        });
       }
       return;
     }
@@ -142,10 +156,23 @@ export class InputController {
     }
   }
 
+  onRawMove(e) {
+    const d = this.drawPointer;
+    if (!d || e.pointerId !== d.id) return;
+    d.raw = true;
+    this.moveDraw(e, false); // la predicción anterior queda atrás: se descarta
+  }
+
   onMove(e) {
     const type = e.pointerType || 'mouse';
-    if (this.drawPointer && e.pointerId === this.drawPointer.id) {
-      this.moveDraw(e);
+    const d = this.drawPointer;
+    if (d && e.pointerId === d.id) {
+      // Con pointerrawupdate los puntos ya llegaron; aquí solo se aprovecha la predicción.
+      if (d.raw) {
+        if (d.tool.usesPrediction) d.tool.move([], this.predictedFrom(e, d), e);
+      } else {
+        this.moveDraw(e);
+      }
       return;
     }
     if (this.mode === 'mousepan' && this.lastPan && e.pointerId === this.lastPan.id) {
@@ -289,7 +316,19 @@ export class InputController {
     });
   }
 
-  moveDraw(e) {
+  /** Menú circular al mantener quieto el lápiz o el dedo que dibuja (no con el lazo). */
+  watchRadialDraw(e) {
+    const d = this.drawPointer;
+    if (!d || d.id !== e.pointerId || d.tool === this.editor.tools.lasso) return;
+    this.editor.radial.watch(e, () => {
+      if (this.drawPointer !== d) return;
+      this.cancelDraw();
+      try { this.el.releasePointerCapture(d.id); } catch {}
+      if (d.type === 'touch') this.touches.delete(d.id);
+    });
+  }
+
+  moveDraw(e, withPrediction = true) {
     const d = this.drawPointer;
     const events = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : null;
     const list = events && events.length ? events : [e];
@@ -298,19 +337,21 @@ export class InputController {
       const p = this.pointFromEvent(ev, d.pageIndex);
       if (p) pts.push(p);
     }
-    let predicted = null;
-    if (typeof e.getPredictedEvents === 'function' && d.tool.usesPrediction) {
-      const pe = e.getPredictedEvents();
-      if (pe && pe.length) {
-        predicted = [];
-        for (const ev of pe.slice(0, 2)) {
-          const p = this.pointFromEvent(ev, d.pageIndex);
-          if (p) predicted.push(p);
-        }
-      }
-    }
+    const predicted = withPrediction ? this.predictedFrom(e, d) : null;
     if (d.pen) this.penUntil = Date.now() + PALM_GUARD_MS;
     d.tool.move(pts, predicted, e);
+  }
+
+  predictedFrom(e, d) {
+    if (typeof e.getPredictedEvents !== 'function' || !d.tool.usesPrediction) return null;
+    const pe = e.getPredictedEvents();
+    if (!pe || !pe.length) return null;
+    const out = [];
+    for (const ev of pe.slice(0, 2)) {
+      const p = this.pointFromEvent(ev, d.pageIndex);
+      if (p) out.push(p);
+    }
+    return out;
   }
 
   endDraw(e) {

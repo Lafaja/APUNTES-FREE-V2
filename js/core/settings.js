@@ -39,6 +39,9 @@ const DEFAULTS = {
   showZoomControls: true,
   backupReminderDays: 7,
   shapeSnap: true, // formas perfectas al mantener el lápiz quieto al final del trazo
+  radialMenu: true, // menú circular de herramientas y colores al mantener pulsado sin moverse
+  radialMenuInput: 'both', // 'both' | 'pen' | 'finger'
+  radialMenuDelay: 500, // ms
   openTabs: [], // pestañas de documentos (ids)
   units: 'mm', // unidades para mostrar grosores y medidas: 'mm' | 'cm' | 'pt' | 'px'
   splitOrientation: 'auto', // pantalla dual: 'auto' (según el giro) | 'side' | 'stack'
@@ -84,6 +87,8 @@ class Settings extends Emitter {
     if (!['auto', 'pan', 'draw'].includes(d.fingerMode)) d.fingerMode = 'auto';
     if (!['auto', 'side', 'stack'].includes(d.splitOrientation)) d.splitOrientation = 'auto';
     if (!['mm', 'cm', 'pt', 'px'].includes(d.units)) d.units = 'mm';
+    if (!['both', 'pen', 'finger'].includes(d.radialMenuInput)) d.radialMenuInput = 'both';
+    if (![350, 500, 800].includes(d.radialMenuDelay)) d.radialMenuDelay = 500;
     d.openTabs = Array.isArray(d.openTabs) ? d.openTabs.filter(id => typeof id === 'string').slice(-12) : [];
     d.splitRatio = Number.isFinite(d.splitRatio) ? Math.min(0.8, Math.max(0.2, d.splitRatio)) : 0.5;
     d.eraser = { mode: d.eraser?.mode === 'precision' ? 'precision' : 'stroke', size: Number.isFinite(d.eraser?.size) ? d.eraser.size : 18 };

@@ -3,7 +3,7 @@
 // AL PUBLICAR CAMBIOS: sube VERSION (y APP_VERSION en js/core/version.js). Así la app detecta la
 // nueva versión y ofrece «Actualizar» (guardando antes todo lo pendiente).
 
-const VERSION = '2.3.1';
+const VERSION = '2.4.0';
 const PREFIX = 'tablet-studio-v2-';
 const CACHE = `${PREFIX}${VERSION}`;
 const RUNTIME = `${PREFIX}runtime`;
@@ -35,6 +35,7 @@ const PRECACHE = [
   './js/dialogs/versions.js',
   './js/editor/editor.js',
   './js/editor/input.js',
+  './js/editor/radial.js',
   './js/editor/recognize.js',
   './js/editor/search.js',
   './js/editor/selection.js',

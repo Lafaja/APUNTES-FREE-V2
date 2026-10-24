@@ -11,6 +11,7 @@ import { InputController } from './input.js';
 import { PenTool, EraserTool, ShapeTool } from './tools.js';
 import { Selection, LassoTool } from './selection.js';
 import { Toolbar } from './toolbar.js';
+import { RadialMenu } from './radial.js';
 import { DocSearch } from './search.js';
 import { DocTabs } from './tabs.js';
 import { importImageFile } from '../render/images.js';
@@ -38,6 +39,7 @@ export class Editor {
       shape: new ShapeTool(this)
     };
     this.toolbar = new Toolbar(this, $('#ed-tools'));
+    this.radial = new RadialMenu(this);
     this.search = new DocSearch(this);
     this.tabs = new DocTabs(this);
     this.autoAdded = new Set();

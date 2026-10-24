@@ -48,20 +48,36 @@ export function freehandOptions(s, last = true) {
   return opts;
 }
 
-/** Convierte el Float32Array [x,y,p,...] a la entrada de perfect-freehand. */
+// perfect-freehand ignora los puntos de los últimos 3 unidades del trazo y los une con un tramo recto
+// hasta la punta (en vivo se veía una "cola" recta detrás del lápiz que no seguía la curva).
+// Trabajando a escala ×OUTLINE_SCALE ese tramo queda en 3/OUTLINE_SCALE unidades: imperceptible.
+const OUTLINE_SCALE = 8;
+
+/** Convierte el Float32Array [x,y,p,...] a la entrada de perfect-freehand (a escala OUTLINE_SCALE). */
 function toInput(pts, np) {
   const n = pts.length / 3;
   const out = new Array(n);
+  const k = OUTLINE_SCALE;
   for (let i = 0; i < n; i++) {
     const p = pts[i * 3 + 2];
-    out[i] = [pts[i * 3], pts[i * 3 + 1], np ? 0.5 : p > 0 ? p : 0.5];
+    out[i] = [pts[i * 3] * k, pts[i * 3 + 1] * k, np ? 0.5 : p > 0 ? p : 0.5];
   }
   return out;
 }
 
 /** Polígono de contorno del trazo (array de [x, y]). */
 export function strokeOutline(s, last = true) {
-  return getStroke(toInput(s.pts, s.np), freehandOptions(s, last));
+  const k = OUTLINE_SCALE;
+  const opts = freehandOptions(s, last);
+  opts.size *= k;
+  if (opts.start.taper) opts.start = { ...opts.start, taper: opts.start.taper * k };
+  if (opts.end.taper) opts.end = { ...opts.end, taper: opts.end.taper * k };
+  const outline = getStroke(toInput(s.pts, s.np), opts);
+  for (const q of outline) {
+    q[0] /= k;
+    q[1] /= k;
+  }
+  return outline;
 }
 
 /** Construye un Path2D suavizado (curvas cuadráticas por puntos medios) a partir del contorno. */
@@ -287,7 +303,7 @@ export function drawLiveStroke(ctx, s) {
   const b = BRUSHES[s.t] || BRUSHES.pen;
   // `last: true` también en vivo: el trazo llega hasta la punta del lápiz (con `false` el suavizado
   // lo deja rezagado y se ve un hueco que se cierra con un tramo recto al levantar el lápiz).
-  const outline = getStroke(toInput(s.pts, s.np), freehandOptions(s, true));
+  const outline = strokeOutline(s, true);
   if (outline.length < 3) return;
   ctx.globalAlpha = b.alpha * (s.a ?? 1);
   ctx.fillStyle = s.c;

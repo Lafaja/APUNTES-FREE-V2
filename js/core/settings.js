@@ -57,7 +57,21 @@ class Settings extends Emitter {
     super();
     this.data = structuredCloneSafe(DEFAULTS);
     this._timer = null;
+    this._dirty = new Set(); // claves cambiadas en esta ventana y aún sin guardar
     this.load();
+    // Otra ventana o pestaña de la app (p. ej. la versión anterior aún abierta al actualizar) guardó
+    // ajustes: se adoptan aquí para no volver a escribir encima con valores viejos.
+    globalThis.addEventListener?.('storage', e => {
+      if (e.key === KEY) this.adoptExternal(e.newValue);
+    });
+    // Al salir, recargar o actualizar la app: guardar ya lo pendiente (no esperar al temporizador).
+    const flush = () => {
+      if (this._dirty.size) this.saveNow();
+    };
+    globalThis.addEventListener?.('pagehide', flush);
+    globalThis.document?.addEventListener?.('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flush();
+    });
   }
 
   load() {
@@ -107,6 +121,7 @@ class Settings extends Emitter {
 
   set(key, value) {
     this.data[key] = value;
+    this._dirty.add(key);
     this.save();
     this.emit('change', { key, value });
   }
@@ -120,13 +135,50 @@ class Settings extends Emitter {
     this._timer = setTimeout(() => this.saveNow(), 150);
   }
 
+  /**
+   * Escribe SOLO las claves cambiadas en esta ventana sobre lo que haya guardado. Así una ventana con
+   * ajustes viejos en memoria nunca deshace los colores o ajustes cambiados en otra.
+   */
   saveNow() {
     clearTimeout(this._timer);
     try {
-      localStorage.setItem(KEY, JSON.stringify(this.data));
+      let stored = null;
+      try {
+        stored = JSON.parse(localStorage.getItem(KEY) || 'null');
+      } catch {}
+      let out;
+      if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
+        out = stored;
+        for (const k of this._dirty) out[k] = this.data[k];
+      } else {
+        out = this.data;
+      }
+      localStorage.setItem(KEY, JSON.stringify(out));
+      this._dirty.clear();
     } catch (err) {
       console.warn('No se pudieron guardar las preferencias', err);
     }
+  }
+
+  /** Incorpora los ajustes guardados por otra ventana (salvo los que esta tiene pendientes de guardar). */
+  adoptExternal(raw) {
+    let parsed;
+    try {
+      parsed = JSON.parse(raw || 'null');
+    } catch {
+      return;
+    }
+    if (!parsed || typeof parsed !== 'object') return;
+    const changed = [];
+    for (const k of Object.keys(parsed)) {
+      if (this._dirty.has(k)) continue;
+      if (JSON.stringify(parsed[k]) === JSON.stringify(this.data[k])) continue;
+      this.data[k] = parsed[k];
+      changed.push(k);
+    }
+    if (!changed.length) return;
+    this.sanitize();
+    for (const k of changed) this.emit('change', { key: k, value: this.data[k] });
   }
 
   /** Datos exportables en copias de seguridad. */
@@ -139,6 +191,7 @@ class Settings extends Emitter {
     if (!obj || typeof obj !== 'object') return;
     this.data = { ...this.data, ...obj };
     this.sanitize();
+    for (const k of Object.keys(this.data)) this._dirty.add(k);
     this.saveNow();
     this.emit('change', { key: '*' });
   }

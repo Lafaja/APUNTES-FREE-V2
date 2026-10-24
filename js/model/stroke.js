@@ -223,7 +223,7 @@ export function imageHitByPoint(img, x, y, pad = 0) {
  */
 export function splitStrokeByEraser(s, ax, ay, bx, by, r) {
   if (!strokeHitByEraser(s, ax, ay, bx, by, r)) return null;
-  if (s.t === 'shape') return []; // las formas se borran completas
+  if (s.t === 'shape') return splitShapeByEraser(s, ax, ay, bx, by, r);
   const src = s.pts;
   const n = src.length / 3;
   const step = Math.max(0.75, r / 3);
@@ -261,6 +261,72 @@ export function splitStrokeByEraser(s, ax, ay, bx, by, r) {
     const frag = { ...s, id: uid('s'), pts: Float32Array.from(pts) };
     return frag;
   });
+}
+
+/**
+ * Borrador de precisión sobre una forma (líneas rectas entre vértices): se quita solo el tramo tocado.
+ * Los trozos que quedan son polilíneas abiertas que conservan las esquinas originales. Las formas
+ * rellenas se siguen borrando completas (un relleno con un hueco en el borde no tiene sentido).
+ */
+function splitShapeByEraser(s, ax, ay, bx, by, r) {
+  const filled = s.closed && (s.fill === 'semi' || s.fill === 'solid');
+  if (filled || s.ns) return [];
+  const src = s.pts;
+  const n = src.length / 3;
+  const verts = [];
+  for (let i = 0; i < n; i++) verts.push([src[i * 3], src[i * 3 + 1]]);
+  if (s.closed && n > 2) verts.push(verts[0]);
+  const step = Math.max(0.75, r / 3);
+  const cut = r + strokeRadius(s) * 0.5;
+  const cut2 = cut * cut;
+  // Puntos re-muestreados: { x, y, v } (v = es un vértice original, se conserva siempre).
+  const dense = [{ x: verts[0][0], y: verts[0][1], v: true }];
+  for (let i = 1; i < verts.length; i++) {
+    const [px, py] = verts[i - 1];
+    const [x, y] = verts[i];
+    const k = Math.floor(Math.hypot(x - px, y - py) / step);
+    for (let j = 1; j <= k; j++) {
+      const t = j / (k + 1);
+      dense.push({ x: px + (x - px) * t, y: py + (y - py) * t, v: false });
+    }
+    dense.push({ x, y, v: true });
+  }
+  const runs = [];
+  let run = [];
+  for (const d of dense) {
+    if (distSqPointSeg(d.x, d.y, ax, ay, bx, by) <= cut2) {
+      if (run.length) runs.push(run);
+      run = [];
+    } else {
+      run.push(d);
+    }
+  }
+  if (run.length) runs.push(run);
+  if (!runs.length) return [];
+  const first = runs[0][0] === dense[0];
+  const last = runs[runs.length - 1][runs[runs.length - 1].length - 1] === dense[dense.length - 1];
+  // Forma cerrada cortada por un solo sitio: el último tramo continúa en el primero (pasan por el vértice inicial).
+  if (s.closed && runs.length > 1 && first && last) {
+    const head = runs.shift();
+    runs[runs.length - 1] = runs[runs.length - 1].concat(head.slice(1));
+  }
+  const out = [];
+  for (const rn of runs) {
+    // Solo hacen falta los extremos y las esquinas (los puntos intermedios están en línea recta).
+    const keep = rn.filter((d, i) => i === 0 || i === rn.length - 1 || d.v);
+    const len = Math.hypot(keep[keep.length - 1].x - keep[0].x, keep[keep.length - 1].y - keep[0].y);
+    if (keep.length < 2 || (keep.length === 2 && len < Math.max(1, s.w * 0.5))) continue;
+    const pts = [];
+    for (const d of keep) pts.push(d.x, d.y, 0.5);
+    const frag = { ...s, id: uid('s'), pts: Float32Array.from(pts), sh: 'line' };
+    delete frag.closed;
+    delete frag.fill;
+    delete frag.fc;
+    // La punta de flecha solo sigue en el trozo que conserva el final original.
+    if (s.sh === 'arrow' && !s.closed && rn[rn.length - 1] === dense[dense.length - 1]) frag.sh = 'arrow';
+    out.push(frag);
+  }
+  return out;
 }
 
 /** Fracción de puntos del trazo dentro del lazo (poly plano). */

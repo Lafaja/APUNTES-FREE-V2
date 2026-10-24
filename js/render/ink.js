@@ -14,6 +14,20 @@ export const BRUSHES = {
 
 export const HIGHLIGHTER_ALPHA = BRUSHES.highlighter.alpha;
 
+// Sensibilidad a la presión (Ajustes): cuánto cambia el grosor según lo fuerte que se apriete.
+const PRESSURE_THINNING = { off: 0, soft: 0.3, normal: 0.5, strong: 0.75 };
+
+/**
+ * Valor `th` que se guarda en cada trazo nuevo (así cambiar el ajuste no altera lo ya escrito).
+ * Devuelve undefined para el subrayador (siempre grosor fijo).
+ */
+export function thinningFor(t, level) {
+  const b = BRUSHES[t] || BRUSHES.pen;
+  if (b.flat) return undefined;
+  if (level === 'off') return 0;
+  return Math.max(b.thinning, PRESSURE_THINNING[level] ?? PRESSURE_THINNING.normal);
+}
+
 function easeOutSine(t) {
   return Math.sin((t * Math.PI) / 2);
 }
@@ -24,7 +38,9 @@ export function freehandOptions(s, last = true) {
   const size = Math.max(0.5, s.w * b.sizeMul);
   const opts = {
     size,
-    thinning: b.thinning,
+    // Trazos antiguos (sin `th`): el valor del pincel. Con 0, perfect-freehand dibuja a la mitad del grosor
+    // en vez de al de presión media: un valor ínfimo da grosor constante y del mismo ancho que los demás niveles.
+    thinning: Number.isFinite(s.th) ? s.th || 0.0001 : b.thinning,
     smoothing: b.smoothing,
     streamline: b.streamline,
     simulatePressure: !!(s.np && b.simulate),

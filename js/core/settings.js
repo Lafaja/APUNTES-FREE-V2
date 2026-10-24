@@ -38,6 +38,7 @@ const DEFAULTS = {
   twoFingerUndo: true,
   showZoomControls: true,
   backupReminderDays: 7,
+  pressure: 'normal', // sensibilidad a la presión del lápiz: 'off' | 'soft' | 'normal' | 'strong'
   shapeSnap: true, // formas perfectas al mantener el lápiz quieto al final del trazo
   radialMenu: true, // menú circular de herramientas y colores al mantener pulsado sin moverse
   radialDoubleTap: true, // … con doble toque del dedo (cuando el dedo desplaza)
@@ -90,6 +91,7 @@ class Settings extends Emitter {
     if (!['auto', 'pan', 'draw'].includes(d.fingerMode)) d.fingerMode = 'auto';
     if (!['auto', 'side', 'stack'].includes(d.splitOrientation)) d.splitOrientation = 'auto';
     if (!['mm', 'cm', 'pt', 'px'].includes(d.units)) d.units = 'mm';
+    if (!['off', 'soft', 'normal', 'strong'].includes(d.pressure)) d.pressure = 'normal';
     if (!['both', 'pen', 'finger'].includes(d.radialMenuInput)) d.radialMenuInput = 'both';
     if (![350, 500, 800].includes(d.radialMenuDelay)) d.radialMenuDelay = 500;
     d.openTabs = Array.isArray(d.openTabs) ? d.openTabs.filter(id => typeof id === 'string').slice(-12) : [];

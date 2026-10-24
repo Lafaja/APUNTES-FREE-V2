@@ -3,7 +3,7 @@
 // confirman el cambio en la sesión (que lo guarda y lo añade al historial).
 
 import { makeStroke, strokeBBox, strokeHitByEraser, splitStrokeByEraser } from '../model/stroke.js';
-import { drawLiveStroke, drawStroke, BRUSHES } from '../render/ink.js';
+import { drawLiveStroke, drawStroke, BRUSHES, thinningFor } from '../render/ink.js';
 import { settings } from '../core/settings.js';
 import { recognizeShape } from './recognize.js';
 
@@ -49,6 +49,8 @@ export class PenTool {
     this.ctx = ctx;
     this.minDist = 0.4 / ctx.viewer.zoom;
     this.live = { t: preset.t, c: preset.c, w: preset.w, np: ctx.np ? 1 : 0, pts: [ctx.x, ctx.y, ctx.p] };
+    const th = thinningFor(preset.t, settings.get('pressure'));
+    if (th !== undefined) this.live.th = th;
     this.predicted = null;
     this.startTime = performance.now();
     this.snapped = null;
@@ -181,7 +183,7 @@ export class PenTool {
     }
     let pts = live.pts;
     if (pts.length === 3) pts = [pts[0], pts[1], pts[2], pts[0] + 0.05, pts[1] + 0.05, pts[2]];
-    const stroke = makeStroke({ t: live.t, c: live.c, w: live.w, pts, np: !!live.np });
+    const stroke = makeStroke({ t: live.t, c: live.c, w: live.w, pts, np: !!live.np, extra: live.th !== undefined ? { th: live.th } : null });
     const session = viewer.session;
     session.addStrokes(pageId, [stroke], { origin: viewer, label: 'Trazo' });
     this.editor.afterStroke(viewer, pageIndex, strokeBBox(stroke));

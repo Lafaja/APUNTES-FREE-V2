@@ -58,6 +58,10 @@ export async function openSettingsDialog(app, section) {
     h('div', { style: { paddingBottom: '12px' } }, segmented([
       { id: 'mm', label: 'Milímetros' }, { id: 'cm', label: 'Centímetros' }, { id: 'pt', label: 'Puntos' }, { id: 'px', label: 'Píxeles' }
     ], settings.get('units'), v => settings.set('units', v))),
+    row('Sensibilidad a la presión', 'Cuanto más aprietas el lápiz, más ancha sale la línea. Solo con lápices que detectan presión; afecta a lo que escribas a partir de ahora, no a lo ya escrito.', null),
+    h('div', { style: { paddingBottom: '12px' } }, segmented([
+      { id: 'off', label: 'Desactivada' }, { id: 'soft', label: 'Suave' }, { id: 'normal', label: 'Normal' }, { id: 'strong', label: 'Fuerte' }
+    ], settings.get('pressure'), v => settings.set('pressure', v))),
     row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto medio segundo: la línea, círculo, rectángulo o triángulo se vuelve perfecto. Si sigues moviéndolo, vuelve a ser trazo a mano.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
     h('h3', { style: { marginTop: '18px' } }, 'Menú circular de herramientas'),
     row('Qué es', 'Un círculo con tus plumas, herramientas y colores. Elige arrastrando hasta una opción y soltando, o suelta y toca la opción. Puedes abrirlo de varias formas a la vez:', null),

@@ -285,7 +285,9 @@ export function drawLiveStroke(ctx, s) {
     return;
   }
   const b = BRUSHES[s.t] || BRUSHES.pen;
-  const outline = getStroke(toInput(s.pts, s.np), freehandOptions(s, false));
+  // `last: true` también en vivo: el trazo llega hasta la punta del lápiz (con `false` el suavizado
+  // lo deja rezagado y se ve un hueco que se cierra con un tramo recto al levantar el lápiz).
+  const outline = getStroke(toInput(s.pts, s.np), freehandOptions(s, true));
   if (outline.length < 3) return;
   ctx.globalAlpha = b.alpha * (s.a ?? 1);
   ctx.fillStyle = s.c;

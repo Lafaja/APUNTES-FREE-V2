@@ -1,13 +1,16 @@
-// Menú circular: mantener pulsado sin moverse (lápiz o dedo) abre un círculo con las plumas y
-// herramientas de la barra (anillo interior) y los colores (anillo exterior).
+// Menú circular con las plumas y herramientas de la barra (anillo interior) y los colores (anillo
+// exterior). Se abre de varias formas (cada una se activa en Ajustes → Escritura):
+// mantener pulsado sin moverse, doble toque con el dedo, botón lateral del lápiz o botón flotante.
 // Se elige arrastrando hasta la opción y soltando, o soltando primero y tocando la opción.
 
 import { settings, INK_COLORS } from '../core/settings.js';
-import { h } from '../ui/dom.js';
+import { h, $ } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { BRUSHES } from '../render/ink.js';
 
 const BRUSH_ICONS = { pen: 'pen', fountain: 'fountain', brush: 'brush', pencil: 'pencil', highlighter: 'highlighter' };
+const DOUBLE_TAP_MS = 350;
+const DOUBLE_TAP_PX = 40;
 const TOOLS = [
   { id: 'eraser', icon: 'eraser', name: 'Borrador' },
   { id: 'lasso', icon: 'lasso', name: 'Lazo' },
@@ -19,6 +22,46 @@ export class RadialMenu {
     this.editor = editor;
     this.watchState = null;
     this.el = null;
+    this.lastTap = null;
+    this.fab = h('button.radial-fab', { type: 'button', title: 'Menú de herramientas y colores', 'aria-label': 'Menú de herramientas y colores' });
+    this.fab.innerHTML = icon('palette');
+    this.fab.addEventListener('pointerdown', e => e.stopPropagation());
+    this.fab.addEventListener('click', () => {
+      const r = this.fab.getBoundingClientRect();
+      this.open(r.left + r.width / 2, r.top + r.height / 2, null);
+    });
+    const body = $('#screen-editor'); // no en #ed-body: el editor lo vacía al cambiar de documento
+    if (body) body.appendChild(this.fab);
+    this.syncFab();
+    settings.on('change', ({ key }) => {
+      if (key === 'radialFab' || key === '*') this.syncFab();
+    });
+  }
+
+  syncFab() {
+    this.fab.hidden = !settings.get('radialFab');
+  }
+
+  /** Botón lateral del lápiz apoyado en la pantalla: abre el menú (si está activado). */
+  penButton(e) {
+    if (!settings.get('radialPenButton') || this.el) return false;
+    this.cancelWatch();
+    this.open(e.clientX, e.clientY, e.pointerId);
+    return true;
+  }
+
+  /** Toque con un dedo: el segundo toque seguido en el mismo sitio abre el menú (si está activado). */
+  tap(x, y) {
+    if (!settings.get('radialDoubleTap') || this.el) return false;
+    const now = performance.now();
+    const prev = this.lastTap;
+    if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < DOUBLE_TAP_PX) {
+      this.lastTap = null;
+      this.open(x, y, null);
+      return true;
+    }
+    this.lastTap = { t: now, x, y };
+    return false;
   }
 
   isOpen() {
@@ -159,8 +202,9 @@ export class RadialMenu {
     };
 
     // Arrastrar desde la pulsación que abrió el menú: resaltar y elegir al soltar.
+    // (Si se abrió con un toque o un botón no hay pulsación que seguir: directamente modo toque.)
     let moved = false;
-    let dragging = true;
+    let dragging = pointerId !== null && pointerId !== undefined;
     let hovered = null;
     const setHovered = item => {
       if (hovered === item) return;
@@ -185,9 +229,11 @@ export class RadialMenu {
       window.removeEventListener('pointerup', onDragEnd, true);
       window.removeEventListener('pointercancel', onDragEnd, true);
     };
-    window.addEventListener('pointermove', onDragMove, true);
-    window.addEventListener('pointerup', onDragEnd, true);
-    window.addEventListener('pointercancel', onDragEnd, true);
+    if (dragging) {
+      window.addEventListener('pointermove', onDragMove, true);
+      window.addEventListener('pointerup', onDragEnd, true);
+      window.addEventListener('pointercancel', onDragEnd, true);
+    }
 
     // Modo toque: tras soltar sin arrastrar, tocar una opción la elige y tocar fuera cierra.
     overlay.addEventListener('pointerdown', ev => {

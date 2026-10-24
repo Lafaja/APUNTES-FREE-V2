@@ -38,7 +38,8 @@ export class PenTool {
   constructor(editor) {
     this.editor = editor;
     this.modifies = true;
-    this.usesPrediction = true;
+    // Sin puntos predichos: se dibujaban como un tramo recto por delante de la punta.
+    this.usesPrediction = false;
     this.live = null;
     this.raf = 0;
   }

@@ -40,6 +40,9 @@ const DEFAULTS = {
   backupReminderDays: 7,
   shapeSnap: true, // formas perfectas al mantener el lápiz quieto al final del trazo
   radialMenu: true, // menú circular de herramientas y colores al mantener pulsado sin moverse
+  radialDoubleTap: true, // … con doble toque del dedo (cuando el dedo desplaza)
+  radialPenButton: false, // … con el botón lateral del lápiz (en vez de borrar)
+  radialFab: false, // … con un botón flotante en la esquina del documento
   radialMenuInput: 'both', // 'both' | 'pen' | 'finger'
   radialMenuDelay: 500, // ms
   openTabs: [], // pestañas de documentos (ids)

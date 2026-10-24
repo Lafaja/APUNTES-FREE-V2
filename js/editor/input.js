@@ -92,7 +92,11 @@ export class InputController {
       this.cancelTouches();
       this.penUntil = Date.now() + PALM_GUARD_MS;
       if (this.drawPointer) return;
-      const eraser = e.button === 5 || (e.buttons & 32) === 32 || (e.buttons & 2) === 2;
+      const eraserEnd = e.button === 5 || (e.buttons & 32) === 32;
+      const barrel = !eraserEnd && (e.buttons & 2) === 2;
+      // Botón lateral: abre el menú circular si así se eligió en Ajustes (si no, borra).
+      if (barrel && this.editor.radial.penButton(e)) return;
+      const eraser = eraserEnd || barrel;
       this.startDraw(e, eraser ? 'eraser' : null);
       if (!eraser) this.watchRadialDraw(e);
       return;
@@ -261,6 +265,7 @@ export class InputController {
     this.multiTap = null;
     if (m.moved || performance.now() - m.t0 > TAP_MAX_MS * 1.6) return;
     if (m.maxCount === 1) {
+      if (this.editor.radial.tap(m.x, m.y)) return;
       this.editor.onTap(this.viewer, m.x, m.y, { mouse: false });
       return;
     }

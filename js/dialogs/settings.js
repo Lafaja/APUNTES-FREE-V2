@@ -59,13 +59,19 @@ export async function openSettingsDialog(app, section) {
       { id: 'mm', label: 'Milímetros' }, { id: 'cm', label: 'Centímetros' }, { id: 'pt', label: 'Puntos' }, { id: 'px', label: 'Píxeles' }
     ], settings.get('units'), v => settings.set('units', v))),
     row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto medio segundo: la línea, círculo, rectángulo o triángulo se vuelve perfecto. Si sigues moviéndolo, vuelve a ser trazo a mano.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
-    row('Menú circular al mantener pulsado', 'Mantén el lápiz o el dedo quieto sobre la página: aparece un círculo con tus plumas, herramientas y colores. Arrastra hasta una opción y suelta (o suelta y tócala).', switchCtl(settings.get('radialMenu'), v => settings.set('radialMenu', v))),
+    h('h3', { style: { marginTop: '18px' } }, 'Menú circular de herramientas'),
+    row('Qué es', 'Un círculo con tus plumas, herramientas y colores. Elige arrastrando hasta una opción y soltando, o suelta y toca la opción. Puedes abrirlo de varias formas a la vez:', null),
+    row('Mantener pulsado', 'Deja el lápiz o el dedo quieto sobre la página.', switchCtl(settings.get('radialMenu'), v => settings.set('radialMenu', v))),
     h('div', { style: { paddingBottom: '8px' } }, segmented([
       { id: 'both', label: 'Lápiz y dedo' }, { id: 'pen', label: 'Solo lápiz' }, { id: 'finger', label: 'Solo dedo' }
     ], settings.get('radialMenuInput'), v => settings.set('radialMenuInput', v))),
     h('div', { style: { paddingBottom: '12px' } }, segmented([
       { id: 350, label: 'Rápido' }, { id: 500, label: 'Normal' }, { id: 800, label: 'Lento' }
     ], settings.get('radialMenuDelay'), v => settings.set('radialMenuDelay', v))),
+    row('Doble toque con el dedo', 'Dos toques rápidos en el mismo sitio (cuando el dedo desplaza la página).', switchCtl(settings.get('radialDoubleTap'), v => settings.set('radialDoubleTap', v))),
+    row('Botón lateral del lápiz', 'Pulsa el botón del lápiz y toca la pantalla. Sustituye al borrado con el botón (el extremo borrador sigue borrando).', switchCtl(settings.get('radialPenButton'), v => settings.set('radialPenButton', v))),
+    row('Botón flotante', 'Un botón con una paleta en la esquina inferior izquierda del documento.', switchCtl(settings.get('radialFab'), v => settings.set('radialFab', v))),
+    h('h3', { style: { marginTop: '18px' } }, 'Gestos'),
     row('Toque con dos dedos = deshacer', 'Y con tres dedos, rehacer. Con un dedo (si el dedo desplaza) se siguen los enlaces del PDF.', switchCtl(settings.get('twoFingerUndo'), v => settings.set('twoFingerUndo', v))),
     row('Añadir página al escribir al final', 'En apuntes, crea una hoja nueva cuando escribes en la parte baja de la última.', switchCtl(settings.get('autoAddPages'), v => settings.set('autoAddPages', v))),
     row('Botones de zoom', 'Muestra − 100 % + en la esquina del documento.', switchCtl(settings.get('showZoomControls'), v => settings.set('showZoomControls', v)))

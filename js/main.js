@@ -145,11 +145,21 @@ class App {
   }
 
   installErrorHandlers() {
+    // Además de la consola, se muestra en pantalla: en la tablet no hay consola para ver qué falló.
+    let lastShown = 0;
+    const show = err => {
+      if (Date.now() - lastShown < 4000) return;
+      lastShown = Date.now();
+      const msg = (err && (err.message || err.name)) || String(err);
+      toast(`Error: ${msg}`, { type: 'error', duration: 9000 });
+    };
     window.addEventListener('error', e => {
       console.error('Error no controlado:', e.error || e.message);
+      show(e.error || e.message);
     });
     window.addEventListener('unhandledrejection', e => {
       console.error('Promesa rechazada sin controlar:', e.reason);
+      show(e.reason);
     });
   }
 
@@ -393,18 +403,31 @@ class App {
   async newNote(parentId) {
     const res = await newNoteDialog();
     if (!res) return;
-    const size = pageSizeFor(res.paper.size, res.paper.orientation);
-    const bg = normalizeBg({ template: res.paper.template, color: res.paper.color, spacing: res.paper.spacing });
-    const { node } = await repo.createDocument({
-      name: res.name,
-      parentId,
-      source: 'note',
-      paper: res.paper,
-      pages: [{ w: size.w, h: size.h, bg }],
-      autoAddPages: res.paper.size !== 'infinite'
-    });
+    let node;
+    try {
+      const size = pageSizeFor(res.paper.size, res.paper.orientation);
+      const bg = normalizeBg({ template: res.paper.template, color: res.paper.color, spacing: res.paper.spacing });
+      ({ node } = await repo.createDocument({
+        name: res.name,
+        parentId,
+        source: 'note',
+        paper: res.paper,
+        pages: [{ w: size.w, h: size.h, bg }],
+        autoAddPages: res.paper.size !== 'infinite'
+      }));
+    } catch (err) {
+      console.error(err);
+      toast(`No se pudo crear el apunte: ${err && err.message ? err.message : err}`, { type: 'error', duration: 0, action: { label: 'Cerrar', fn: () => {} } });
+      return;
+    }
     this.broadcast();
-    await this.openDocument(node.id);
+    try {
+      await this.openDocument(node.id);
+    } catch (err) {
+      console.error(err);
+      toast(`El apunte se creó pero no se pudo abrir: ${err && err.message ? err.message : err}`, { type: 'error', duration: 0, action: { label: 'Cerrar', fn: () => {} } });
+      if (this.library) this.library.reload();
+    }
   }
 
   async newFolder(parentId) {

@@ -335,6 +335,134 @@ function lineFrom(a, b) {
   return { type: 'line', pts: [a.x, a.y, x2, y2], closed: false };
 }
 
+// ---------------- Paréntesis, corchetes y llaves ----------------
+// Se comparan con plantillas en un sistema local: u a lo largo de la cuerda (del principio al final
+// del trazo, de 0 a L) y v hacia el lado al que se abomba (0 en los extremos, W en lo más saliente).
+
+/** Plantillas en (u, v) con L = 1 y anchura W relativa. */
+function bracketTemplate(type, W) {
+  const out = [];
+  const quad = (x0, y0, cx, cy, x1, y1, n) => {
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      const a = (1 - t) * (1 - t), b = 2 * (1 - t) * t, c = t * t;
+      out.push([a * x0 + b * cx + c * x1, a * y0 + b * cy + c * y1]);
+    }
+  };
+  if (type === 'paren') {
+    // Arco de circunferencia que pasa por los extremos y por (½, W).
+    const r = (0.25 + W * W) / (2 * W);
+    const cv = W - r;
+    const half = Math.asin(Math.min(1, 0.5 / r));
+    const n = 48;
+    for (let i = 0; i <= n; i++) {
+      const a = -half + (2 * half * i) / n;
+      out.push([0.5 + r * Math.sin(a), cv + r * Math.cos(a)]);
+    }
+  } else if (type === 'bracket') {
+    out.push([0, 0], [0, W], [1, W], [1, 0]);
+  } else {
+    // Llave: rizo en cada extremo, lomo recto a media anchura y pico en el centro.
+    const q = Math.min(0.16, W * 0.9);
+    const m = W / 2;
+    out.push([0, 0]);
+    quad(0, 0, 0, m, q, m, 10);
+    out.push([0.5 - q, m]);
+    quad(0.5 - q, m, 0.5, m, 0.5, W, 10);
+    quad(0.5, W, 0.5, m, 0.5 + q, m, 10);
+    out.push([1 - q, m]);
+    quad(1 - q, m, 1, m, 1, 0, 10);
+  }
+  return out;
+}
+
+/** Puntos a lo largo de una polilínea [[u, v]] cada `step` (para medir distancias). */
+function densify(T, step) {
+  const out = [T[0]];
+  for (let i = 1; i < T.length; i++) {
+    const [x0, y0] = T[i - 1];
+    const [x1, y1] = T[i];
+    const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / step));
+    for (let k = 1; k <= n; k++) out.push([x0 + ((x1 - x0) * k) / n, y0 + ((y1 - y0) * k) / n]);
+  }
+  return out;
+}
+
+/** Distancia media en las dos direcciones entre dos nubes de puntos [[u, v]]. */
+function cloudError(A, B) {
+  const one = (X, Y) => {
+    let sum = 0;
+    for (const [x, y] of X) {
+      let best = Infinity;
+      for (const [u, v] of Y) {
+        const d = (x - u) * (x - u) + (y - v) * (y - v);
+        if (d < best) best = d;
+      }
+      sum += Math.sqrt(best);
+    }
+    return sum / X.length;
+  };
+  return Math.max(one(A, B), one(B, A));
+}
+
+/** ( ) [ ] { } en vertical u horizontal; null si el trazo no se parece a ninguno. */
+function bracketFrom(R, first, last) {
+  let dx = last.x - first.x;
+  let dy = last.y - first.y;
+  const L = Math.hypot(dx, dy);
+  if (!(L > 0)) return null;
+  // Solo en vertical u horizontal (±20°); casi recto → exacto.
+  const ang = Math.atan2(dy, dx) / DEG;
+  const axis = Math.round(ang / 90) * 90;
+  if (Math.abs(ang - axis) > 20) return null;
+  const ux = dx / L, uy = dy / L;
+  const local = R.map(p => [((p.x - first.x) * ux + (p.y - first.y) * uy) / L, (-(p.x - first.x) * uy + (p.y - first.y) * ux) / L]);
+  let maxAbs = 0;
+  let side = 1;
+  for (const [, v] of local) if (Math.abs(v) > maxAbs) { maxAbs = Math.abs(v); side = Math.sign(v) || 1; }
+  for (const q of local) q[1] *= side;
+  // Abombado hacia un solo lado y sin pasarse de los extremos.
+  if (maxAbs < 0.06 || maxAbs > 0.6) return null;
+  const W = maxAbs;
+  const below = -Math.max(0.03, 0.25 * W);
+  if (local.some(([u, v]) => v < below || u < -0.12 || u > 1.12)) return null;
+  const mid = local.filter(([u]) => u > 0.3 && u < 0.7);
+  const spine = mid.length ? mid.reduce((s, [, v]) => s + v, 0) / mid.length : W;
+  // Longitud del trazo suavizado (el temblor de la mano no debe contar).
+  const sm = local.map((_, i) => {
+    let su = 0, sv = 0, k = 0;
+    for (let j = Math.max(0, i - 2); j <= Math.min(local.length - 1, i + 2); j++) { su += local[j][0]; sv += local[j][1]; k++; }
+    return [su / k, sv / k];
+  });
+  let len = 0;
+  for (let i = 1; i < sm.length; i++) len += Math.hypot(sm[i][0] - sm[i - 1][0], sm[i][1] - sm[i - 1][1]);
+  let best = null;
+  for (const [type, w] of [['paren', W], ['bracket', spine], ['brace', W]]) {
+    const T = bracketTemplate(type, w);
+    let tl = 0;
+    for (let i = 1; i < T.length; i++) tl += Math.hypot(T[i][0] - T[i - 1][0], T[i][1] - T[i - 1][1]);
+    if (len > tl * 1.3 || len < tl * 0.75) continue; // un garabato es más largo que la plantilla
+    const err = cloudError(local, densify(T, 0.01));
+    if (!best || err < best.err) best = { type, err, T };
+  }
+  if (!best) return null;
+  if (best.err > 0.045) return null;
+  // De vuelta a la página, con la cuerda alineada exactamente si estaba casi recta.
+  let ex = last.x, ey = last.y;
+  if (Math.abs(ang - axis) < 8) {
+    if (axis % 180 === 0) ey = first.y;
+    else ex = first.x;
+  }
+  dx = ex - first.x;
+  dy = ey - first.y;
+  const pts = [];
+  for (const [u, v] of best.T) {
+    const vv = v * side;
+    pts.push(first.x + u * dx - vv * dy, first.y + u * dy + vv * dx);
+  }
+  return { type: best.type, pts, closed: false };
+}
+
 /**
  * flat: [x, y, p, x, y, p, ...] en coordenadas de página.
  * minSize: tamaño mínimo (diagonal, en unidades de página) para intentar reconocer algo.
@@ -363,6 +491,7 @@ export function recognizeShape(flat, { minSize = 20 } = {}) {
     for (const p of R) dev = Math.max(dev, distToSeg(p, first, last));
     if (gap > 0.8 * diag && dev < Math.max(3, 0.07 * gap) && L < 1.25 * gap) return lineFrom(first, last);
     // Polilínea de 2 o 3 tramos rectos (p. ej. una "L" o una "V").
+    let poly = null;
     const V = cleanVertices(simplify(R, Math.max(1.5, 0.05 * diag)), diag, false);
     if (V.length >= 3 && V.length <= 4) {
       const segsOk = V.every((p, i) => i === 0 || Math.hypot(p.x - V[i - 1].x, p.y - V[i - 1].y) > 0.18 * diag);
@@ -371,10 +500,12 @@ export function recognizeShape(flat, { minSize = 20 } = {}) {
       if (segsOk && cornersOk && fit.mean < 0.015 * diag && fit.max < 0.045 * diag) {
         const pts = [];
         for (const p of V) pts.push(p.x, p.y);
-        return { type: 'polyline', pts, closed: false };
+        poly = { type: 'polyline', pts, closed: false };
       }
     }
-    return null;
+    if (poly && V.length === 3) return poly; // una "V" no es un paréntesis
+    // Paréntesis, corchete o llave (un corchete de 3 tramos sale exacto en vez de polilínea).
+    return bracketFrom(R, first, last) || poly;
   }
 
   const C = resample(trimClosure(P), 96) || R;

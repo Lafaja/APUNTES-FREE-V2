@@ -682,6 +682,11 @@ body.lib-dragging, body.lib-dragging * { cursor: grabbing !important; }
 .color-choice.add .svg-icon { width: 16px; height: 16px; }
 .size-row { display: flex; align-items: center; gap: 10px; }
 .size-row input[type="range"] { flex: 1; }
+.size-row:empty { display: none; }
+.segmented + .size-row { margin-top: 8px; }
+.size-row .mm-input { width: 76px; height: 36px; flex: none; text-align: right; padding: 0 8px; }
+.segmented.tight button { min-width: 0; padding: 7px 4px; }
+.segmented.tight button:last-child { flex: 3; }
 .timing-row { padding-bottom: 10px; }
 .timing-row .settings-row { padding-bottom: 2px; }
 .timing-row .size-value { min-width: 64px; }

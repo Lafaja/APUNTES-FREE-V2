@@ -8,9 +8,15 @@ import { h, iconEl, clear } from '../ui/dom.js';
 import { openModal, alertDialog } from '../ui/modal.js';
 import { toast } from '../ui/toast.js';
 import { isPdfBytes, cleanName } from '../core/util.js';
-import { normalizeBg, paperSvgDataUri, PAPER_COLORS, TEMPLATES } from '../model/paper.js';
+import { normalizeBg, paperSvgDataUri, PAPER_COLORS, TEMPLATES, PAPER_SIZES, PX_PER_MM } from '../model/paper.js';
+import { formatLength } from '../core/settings.js';
 
 const PX_PER_PT = 4 / 3;
+
+// Ancho del espacio lateral: el de una hoja en vertical (A6…A3) o uno a medida en mm.
+const MARGIN_SIZES = ['a6', 'a5', 'a4', 'a3'];
+const MARGIN_MM = { min: 20, max: 300 };
+const marginPx = (size, customMm) => PAPER_SIZES[size] ? PAPER_SIZES[size].w : Math.round(customMm * PX_PER_MM);
 
 async function readFile(file) {
   const buf = await file.arrayBuffer();
@@ -39,7 +45,9 @@ function importOptionsDialog(file, doc) {
     name: file.name.replace(/\.pdf$/i, ''),
     rotation: 0,
     margin: 'none', // none | left | right | both
-    marginWidth: 280,
+    marginSize: 'a4', // a6 | a5 | a4 | a3 | custom
+    marginMm: 74, // ancho personalizado
+    marginWidth: PAPER_SIZES.a4.w,
     template: 'grid',
     color: '#ffffff',
     spacing: 28,
@@ -105,15 +113,54 @@ function importOptionsDialog(file, doc) {
   const renderMarginOpts = () => {
     clear(marginOpts);
     if (state.margin === 'none') return;
-    const slider = h('input', { type: 'range', min: 120, max: 600, step: 10, value: state.marginWidth });
-    const val = h('span.size-value', `${Math.round(state.marginWidth / 3.78)} mm`);
-    slider.addEventListener('input', () => {
-      state.marginWidth = parseInt(slider.value, 10);
-      val.textContent = `${Math.round(state.marginWidth / 3.78)} mm`;
+    const setWidth = () => { state.marginWidth = marginPx(state.marginSize, state.marginMm); };
+    const customRow = h('div.size-row');
+    const renderCustom = () => {
+      clear(customRow);
+      if (state.marginSize !== 'custom') return;
+      const slider = h('input', { type: 'range', min: MARGIN_MM.min, max: MARGIN_MM.max, step: 1, value: state.marginMm });
+      const num = h('input.text-input.mm-input', { type: 'number', min: MARGIN_MM.min, max: MARGIN_MM.max, step: 1, value: state.marginMm, inputmode: 'numeric' });
+      const apply = (v, from) => {
+        const n = Math.round(Number(v));
+        if (!Number.isFinite(n)) return;
+        state.marginMm = Math.min(MARGIN_MM.max, Math.max(MARGIN_MM.min, n));
+        if (from !== slider) slider.value = state.marginMm;
+        if (from !== num) num.value = state.marginMm;
+        setWidth();
+      };
+      slider.addEventListener('input', () => apply(slider.value, slider));
+      slider.addEventListener('change', renderPreview);
+      num.addEventListener('change', () => { apply(num.value, null); renderPreview(); });
+      customRow.append(slider, num, h('span', 'mm'));
+    };
+    const sizeSeg = segmented([
+      ...MARGIN_SIZES.map(id => ({ id, label: PAPER_SIZES[id].name })),
+      { id: 'custom', label: 'Personalizado' }
+    ], state.marginSize, v => {
+      state.marginSize = v;
+      setWidth();
+      renderCustom();
+      renderPreview();
     });
-    slider.addEventListener('change', renderPreview);
+    sizeSeg.classList.add('tight');
+    renderCustom();
+    const spacingWrap = h('div.field');
+    const renderSpacing = () => {
+      clear(spacingWrap);
+      spacingWrap.hidden = state.template === 'blank';
+      const slider = h('input', { type: 'range', min: 8, max: 76, step: 1, value: state.spacing });
+      const val = h('span.size-value', formatLength(state.spacing));
+      slider.addEventListener('input', () => {
+        state.spacing = parseInt(slider.value, 10);
+        val.textContent = formatLength(state.spacing);
+      });
+      slider.addEventListener('change', renderPreview);
+      spacingWrap.append(h('span', state.template === 'grid' ? 'Tamaño de cuadrícula' : 'Separación'), h('div.size-row', slider, val));
+    };
+    renderSpacing();
     const tpl = segmented(TEMPLATES.filter(t => t.id !== 'cornell').map(t => ({ id: t.id, label: t.name })), state.template, v => {
       state.template = v;
+      renderSpacing();
       renderPreview();
     });
     const colors = h('div.color-choices');
@@ -128,8 +175,9 @@ function importOptionsDialog(file, doc) {
       colors.appendChild(b);
     }
     marginOpts.append(
-      h('div.field', h('span', 'Ancho del margen'), h('div.size-row', slider, val)),
+      h('div.field', h('span', 'Ancho del margen'), sizeSeg, customRow),
       h('div.field', h('span', 'Fondo del margen'), tpl),
+      spacingWrap,
       h('div.field', h('span', 'Color del margen'), colors)
     );
   };
@@ -193,7 +241,7 @@ export async function importPdfFlow(file, parentId, { single = true } = {}) {
   try {
     cfg = single
       ? await importOptionsDialog(file, doc)
-      : { name: cleanName(file.name.replace(/\.pdf$/i, ''), 'Documento PDF'), rotation: 0, margin: 'none', marginWidth: 280, template: 'grid', color: '#ffffff', spacing: 28 };
+      : { name: cleanName(file.name.replace(/\.pdf$/i, ''), 'Documento PDF'), rotation: 0, margin: 'none', marginWidth: PAPER_SIZES.a4.w, template: 'grid', color: '#ffffff', spacing: 28 };
     if (!cfg) {
       closePdf(doc);
       return null;

@@ -29,6 +29,27 @@ function withPageClip(viewer, pageIndex, fn) {
   }
 }
 
+/**
+ * Trazo "perfecto" (forma reconocida, arco del compás…) con el color y grosor de la pluma `preset`.
+ * `xy` = [x, y, x, y, …] en coordenadas de página.
+ */
+export function presetShapeStroke(preset, xy, closed, sh, zoom) {
+  const b = BRUSHES[preset.t] || BRUSHES.pen;
+  const flat = [];
+  for (let i = 0; i + 1 < xy.length; i += 2) flat.push(xy[i], xy[i + 1], 0.5);
+  if (preset.t === 'highlighter') {
+    // El subrayador conserva su aspecto (translúcido y por debajo de la tinta).
+    return makeStroke({ t: 'highlighter', c: preset.c, w: preset.w, pts: densifyFlat(flat, closed, 3 / zoom), np: true });
+  }
+  const extra = { sh };
+  if (closed) extra.closed = 1;
+  if (b.alpha < 1) extra.a = b.alpha;
+  if (preset.ds && preset.ds !== 'solid') extra.ds = preset.ds;
+  // perfect-freehand dibuja un grosor de ~√2 × tamaño con presión media: la forma usa el mismo grosor visual.
+  const w = Math.max(0.5, preset.w * b.sizeMul * Math.SQRT2 * (b.simulate ? 0.8 : 1));
+  return makeStroke({ t: 'shape', c: preset.c, w, pts: flat, np: true, extra });
+}
+
 // ---------------------------------------------------------------------------
 // Pluma / subrayador
 // ---------------------------------------------------------------------------
@@ -47,6 +68,13 @@ export class PenTool {
     const preset = this.editor.activePreset();
     this.ctx = ctx;
     this.minDist = 0.4 / ctx.viewer.zoom;
+    // Junto al borde de una regla, escuadra… el trazo sigue ese borde.
+    this.guide = ctx.viewer.guides ? ctx.viewer.guides.snapper(ctx.pageIndex, ctx.clientX, ctx.clientY) : null;
+    if (this.guide) {
+      const g = this.guide({ x: ctx.x, y: ctx.y, p: ctx.p });
+      ctx = { ...ctx, x: g.x, y: g.y };
+      this.ctx = ctx;
+    }
     this.live = { t: preset.t, c: preset.c, w: preset.w, np: ctx.np ? 1 : 0, pts: [ctx.x, ctx.y, ctx.p] };
     const th = thinningFor(preset.t, settings.get('pressure'));
     if (th !== undefined) this.live.th = th;
@@ -56,7 +84,7 @@ export class PenTool {
     this.snapped = null;
     this.snapEdit = null;
     this.holdAnchor = { x: ctx.x, y: ctx.y };
-    this.armHold();
+    if (!this.guide) this.armHold();
     this.render();
   }
 
@@ -83,26 +111,16 @@ export class PenTool {
 
   /** Trazo "perfecto" con el mismo color y grosor que la pluma activa. */
   shapeStroke(shape) {
-    const live = this.live;
-    const b = BRUSHES[live.t] || BRUSHES.pen;
-    const flat = [];
-    for (let i = 0; i + 1 < shape.pts.length; i += 2) flat.push(shape.pts[i], shape.pts[i + 1], 0.5);
-    if (live.t === 'highlighter') {
-      // El subrayador conserva su aspecto (translúcido y por debajo de la tinta).
-      return makeStroke({ t: 'highlighter', c: live.c, w: live.w, pts: densifyFlat(flat, shape.closed, 3 / this.ctx.viewer.zoom), np: true });
-    }
-    const extra = { sh: shape.type };
-    if (shape.closed) extra.closed = 1;
-    if (b.alpha < 1) extra.a = b.alpha;
-    if (live.ds) extra.ds = live.ds;
-    // perfect-freehand dibuja un grosor de ~√2 × tamaño con presión media: la forma usa el mismo grosor visual.
-    const w = Math.max(0.5, live.w * b.sizeMul * Math.SQRT2 * (b.simulate ? 0.8 : 1));
-    return makeStroke({ t: 'shape', c: live.c, w, pts: flat, np: true, extra });
+    return presetShapeStroke(this.live, shape.pts, shape.closed, shape.type, this.ctx.viewer.zoom);
   }
 
   move(points, predicted) {
     if (!this.live) return;
     const pts = this.live.pts;
+    if (this.guide) {
+      points = points.map(this.guide);
+      predicted = null;
+    }
     // Si el lápiz se mueve de verdad, se sigue dibujando a mano (y se deshace la forma si la había).
     const tol = timing('shapeSnapTolerance') / this.ctx.viewer.zoom;
     // Línea o círculo ya perfectos: seguir moviendo el lápiz los ajusta (ángulo/largo o tamaño).
@@ -116,7 +134,7 @@ export class PenTool {
       return;
     }
     for (const p of points) {
-      if (Math.hypot(p.x - this.holdAnchor.x, p.y - this.holdAnchor.y) > tol) {
+      if (!this.guide && Math.hypot(p.x - this.holdAnchor.x, p.y - this.holdAnchor.y) > tol) {
         this.holdAnchor = { x: p.x, y: p.y };
         if (this.snapped) this.snapped = null;
         this.snapEdit = null;
@@ -191,6 +209,7 @@ export class PenTool {
       });
       return;
     }
+    if (lastPoint && this.guide) lastPoint = this.guide(lastPoint);
     if (lastPoint) {
       const n = live.pts.length;
       const dx = lastPoint.x - live.pts[n - 3];

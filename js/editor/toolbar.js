@@ -7,6 +7,7 @@ import { icon } from '../ui/icons.js';
 import { openPopover, closePopover } from '../ui/popover.js';
 import { BRUSHES, DASHES, dashPattern, drawLiveStroke } from '../render/ink.js';
 import { SHAPES } from './tools.js';
+import { INSTRUMENTS } from './guides.js';
 import { createColorPicker } from '../ui/colorpicker.js';
 
 /** Guarda un color en "mis colores" (máximo 16, sin repetir los de serie). */
@@ -57,7 +58,8 @@ export class Toolbar {
       { id: 'eraser', icon: 'eraser', title: 'Borrador (toca otra vez para ajustes)' },
       { id: 'lasso', icon: 'lasso', title: 'Lazo: seleccionar, mover y copiar' },
       { id: 'shape', icon: 'shapes', title: 'Formas (toca otra vez para ajustes)' },
-      { id: 'image', icon: 'image', title: 'Insertar imagen o foto' }
+      { id: 'image', icon: 'image', title: 'Insertar imagen o foto' },
+      { id: 'instruments', icon: 'ruler', title: 'Regla, escuadra, cartabón, transportador y compás' }
     ];
     for (const t of tools) {
       const b = h('button.tool-btn', { type: 'button', title: t.title, dataset: { tool: t.id } });
@@ -70,6 +72,10 @@ export class Toolbar {
       b.addEventListener('click', () => {
         if (t.id === 'image') {
           ed.insertImage();
+          return;
+        }
+        if (t.id === 'instruments') {
+          this.openInstrumentsPanel(b);
           return;
         }
         if (ed.tool === t.id) {
@@ -88,9 +94,55 @@ export class Toolbar {
     const ed = this.editor;
     const activeId = settings.get('activePresetId');
     this.root.querySelectorAll('.tool-btn').forEach(b => {
-      const on = b.dataset.preset ? ed.tool === 'pen' && b.dataset.preset === activeId : b.dataset.tool === ed.tool;
+      let on = b.dataset.preset ? ed.tool === 'pen' && b.dataset.preset === activeId : b.dataset.tool === ed.tool;
+      if (b.dataset.tool === 'instruments') on = ed.tool === 'compass' || ed.instrumentsShown();
       b.classList.toggle('active', !!on);
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Instrumentos de dibujo técnico
+  // ------------------------------------------------------------------
+
+  openInstrumentsPanel(anchor) {
+    const ed = this.editor;
+    const panel = h('div.tool-panel');
+    const grid = h('div.instr-grid');
+    const sync = () => {
+      grid.querySelectorAll('[data-instr]').forEach(b => {
+        const id = b.dataset.instr;
+        b.classList.toggle('active', id === 'compass' ? ed.tool === 'compass' : ed.instrumentShown(id));
+      });
+      this.syncActive();
+    };
+    const items = [...INSTRUMENTS, { id: 'compass', name: 'Compás', hint: 'Arcos y círculos', icon: 'compass' }];
+    for (const it of items) {
+      const b = h('button.instr-btn', { type: 'button', dataset: { instr: it.id } }, iconEl(it.icon), h('span.instr-name', it.name), it.hint ? h('span.instr-hint', it.hint) : null);
+      b.addEventListener('click', () => {
+        if (it.id === 'compass') {
+          ed.setTool(ed.tool === 'compass' ? 'pen' : 'compass');
+          return; // setTool cierra el panel
+        }
+        ed.toggleInstrument(it.id);
+        sync();
+      });
+      grid.appendChild(b);
+    }
+    const clearBtn = h('button.btn.btn-sm.btn-ghost', { type: 'button' }, iconEl('x'), 'Quitar todos');
+    clearBtn.addEventListener('click', () => {
+      ed.clearInstruments();
+      if (ed.tool === 'compass') ed.setTool('pen');
+      else sync();
+    });
+    panel.append(
+      h('h3', 'Instrumentos'),
+      grid,
+      h('div.hint', { style: { margin: '10px 0 6px' } }, 'Muévelos con un dedo y gíralos con dos (se quedan fijos cada 15°). Escribe con el lápiz pegado a un borde para trazar recto (o en arco con el transportador).'),
+      h('div.hint', { style: { margin: '0 0 8px' } }, 'Compás: toca para clavar la punta y arrastra para abrirlo; luego gira el lápiz alrededor de la circunferencia. Tocando la punta cambias el radio; lejos, pones otro centro.'),
+      clearBtn
+    );
+    sync();
+    openPopover(anchor, panel);
   }
 
   syncDisabled() {

@@ -551,6 +551,31 @@ body.lib-dragging, body.lib-dragging * { cursor: grabbing !important; }
 }
 .viewer-stage { position: relative; transform-origin: 0 0; }
 .viewer-overlay { position: absolute; left: 0; top: 0; pointer-events: none; z-index: 4; }
+/* Instrumentos de dibujo (guides.js): por encima de la hoja y por debajo del trazo en curso */
+.viewer-guides { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; overflow: visible; }
+.guide-body { fill: rgba(186, 214, 255, 0.28); stroke: rgba(30, 64, 120, 0.7); stroke-width: 1.2; }
+.guide-hole { fill: rgba(255, 255, 255, 0.12); stroke: rgba(30, 64, 120, 0.45); stroke-width: 1; }
+.guide-line { fill: none; stroke: rgba(15, 35, 70, 0.78); stroke-width: 1; }
+.guide-num { fill: rgba(15, 35, 70, 0.85); font-family: system-ui, sans-serif; font-weight: 600; }
+.guide-num2 { fill: rgba(15, 35, 70, 0.5); font-family: system-ui, sans-serif; }
+.guide-unit { fill: rgba(15, 35, 70, 0.45); font-family: system-ui, sans-serif; font-weight: 600; }
+.compass-ring { fill: none; stroke: rgba(37, 99, 235, 0.55); stroke-width: 1.2; stroke-dasharray: 5 5; }
+.compass-arm { stroke: rgba(37, 99, 235, 0.8); stroke-width: 2; }
+.compass-tip { fill: #2563eb; }
+.compass-pin { fill: #fff; stroke: #2563eb; stroke-width: 2.5; }
+.guide-label-bg { fill: rgba(37, 99, 235, 0.92); }
+.guide-label-text { fill: #fff; font: 600 13px system-ui, sans-serif; }
+.instr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.instr-btn {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center;
+  text-align: left; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--surface);
+}
+.instr-btn > :first-child { grid-row: 1 / span 2; grid-column: 1; display: flex; }
+.instr-btn .svg-icon { width: 24px; height: 24px; }
+.instr-btn .instr-name, .instr-btn .instr-hint { grid-column: 2; }
+.instr-btn .instr-name { font-weight: 600; font-size: 14px; }
+.instr-btn .instr-hint { font-size: 12px; color: var(--text-3); }
+.instr-btn.active { border-color: var(--accent); background: var(--accent-soft); }
 .page {
   position: absolute; background-color: #fff; box-shadow: var(--page-shadow);
   background-repeat: no-repeat; background-size: 100% 100%;
@@ -741,6 +766,9 @@ input[type="range"] { accent-color: var(--accent); height: 28px; }
 }
 .text-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .hint { font-size: 12.5px; color: var(--text-3); }
+textarea.text-area { height: auto; min-height: 140px; padding: 10px 12px; resize: vertical; line-height: 1.4; }
+.check-row { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text-2); cursor: pointer; }
+.check-row input { width: 20px; height: 20px; margin: 1px 0 0; flex: none; accent-color: var(--accent); }
 
 .choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
 .choice {

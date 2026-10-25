@@ -16,6 +16,7 @@ import { pageSizeFor, normalizeBg } from './model/paper.js';
 import { updateThumbnail } from './render/thumbs.js';
 import { APP_VERSION } from './core/version.js';
 import { pauseIndexing } from './core/textindex.js';
+import { recordError, flushFeedback } from './core/feedback.js';
 
 export { APP_VERSION };
 
@@ -68,7 +69,11 @@ class App {
     this.setupServiceWorker();
     window.addEventListener('popstate', () => this.onRoute());
     this.onRoute(true);
+    this.receiveExternalFiles();
     setTimeout(() => this.autoBackup(), 20000);
+    // Errores y sugerencias que quedaron pendientes de enviar.
+    setTimeout(() => flushFeedback(), 8000);
+    window.addEventListener('online', () => flushFeedback());
   }
 
   /** Copia automática en la carpeta elegida y/o en Google Drive, si está activada y toca (nunca bloquea la interfaz). */
@@ -155,10 +160,12 @@ class App {
     };
     window.addEventListener('error', e => {
       console.error('Error no controlado:', e.error || e.message);
+      recordError(e.error || e.message);
       show(e.error || e.message);
     });
     window.addEventListener('unhandledrejection', e => {
       console.error('Promesa rechazada sin controlar:', e.reason);
+      recordError(e.reason);
       show(e.reason);
     });
   }
@@ -464,6 +471,91 @@ class App {
       if (lastId && files.length === 1) await this.openDocument(lastId);
     });
     input.click();
+  }
+
+  /** Compartir uno o varios documentos como archivo .tstudio. */
+  async shareDocs(ids) {
+    const { openShareDialog } = await import('./dialogs/share.js');
+    await openShareDialog(ids);
+  }
+
+  /** «Importar apunte compartido»: sin filtro de tipo, porque Android no conoce la extensión .tstudio. */
+  importShared(parentId) {
+    const input = h('input', { type: 'file', multiple: true, style: { display: 'none' } });
+    document.body.appendChild(input);
+    input.addEventListener('change', () => {
+      const files = [...(input.files || [])];
+      input.remove();
+      if (files.length) this.importFiles(files, parentId);
+    });
+    input.click();
+  }
+
+  /** Importa archivos .tstudio (como copias propias) o PDF dentro de una carpeta y abre el resultado. */
+  async importFiles(files, parentId = null) {
+    const { importShareFile, looksLikeShareFile } = await import('./core/share.js');
+    const opened = [];
+    for (const f of files) {
+      const isPdf = f.type === 'application/pdf' || /\.pdf$/i.test(f.name || '');
+      try {
+        if (isPdf) {
+          const { importPdfFlow } = await import('./dialogs/import-pdf.js');
+          const id = await importPdfFlow(f, parentId, { single: files.length === 1 });
+          if (id) opened.push(id);
+          continue;
+        }
+        if (!(await looksLikeShareFile(f))) {
+          toast(`«${f.name}» no es un apunte de Tablet Studio (.tstudio) ni un PDF`, { type: 'error', duration: 7000 });
+          continue;
+        }
+        const stop = toast(`Importando «${f.name}»…`, { duration: 0 });
+        let r;
+        try {
+          r = await importShareFile(f, parentId);
+        } finally {
+          stop();
+        }
+        opened.push(...r.docIds);
+        if (r.errors.length) await alertDialog(`Se importó lo posible, pero hubo problemas: ${r.errors.join(' · ')}`, 'Importar apunte');
+        else toast(`Importado: ${r.docs} apunte${r.docs === 1 ? '' : 's'}`, { type: 'success' });
+      } catch (err) {
+        console.error(err);
+        toast(`No se pudo importar «${f.name}»: ${err.message || err}`, { type: 'error', duration: 8000 });
+      }
+    }
+    await this.library.reload();
+    this.broadcast();
+    if (opened.length === 1) await this.openDocument(opened[0]);
+  }
+
+  /** Archivos que llegan desde fuera: «Compartir → Tablet Studio» (Android) o doble clic en un .tstudio (PC). */
+  async receiveExternalFiles() {
+    if ('launchQueue' in window) {
+      window.launchQueue.setConsumer(async params => {
+        const files = await Promise.all((params.files || []).map(fh => fh.getFile().catch(() => null)));
+        if (files.some(Boolean)) this.importFiles(files.filter(Boolean), this.library.folderId || null);
+      });
+    }
+    if (new URLSearchParams(location.search).has('share-target')) {
+      history.replaceState(history.state, '', location.pathname + location.hash);
+    }
+    if (!('caches' in window)) return;
+    try {
+      if (!(await caches.has('tablet-studio-share-inbox'))) return;
+      const cache = await caches.open('tablet-studio-share-inbox');
+      const files = [];
+      for (const req of await cache.keys()) {
+        const res = await cache.match(req);
+        if (res) {
+          const name = decodeURIComponent(res.headers.get('X-File-Name') || 'archivo');
+          files.push(new File([await res.blob()], name, { type: res.headers.get('Content-Type') || '' }));
+        }
+        await cache.delete(req);
+      }
+      if (files.length) await this.importFiles(files, this.library.folderId || null);
+    } catch (err) {
+      console.error('No se pudieron leer los archivos compartidos', err);
+    }
   }
 
   pickFolder(opts) {

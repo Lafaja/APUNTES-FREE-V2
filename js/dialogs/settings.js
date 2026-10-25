@@ -7,6 +7,7 @@ import { h, iconEl, clear } from '../ui/dom.js';
 import { openModal, alertDialog, confirmDialog } from '../ui/modal.js';
 import { toast } from '../ui/toast.js';
 import { APP_VERSION } from '../core/version.js';
+import { diagnosticText } from '../core/feedback.js';
 
 function row(title, sub, control) {
   return h('div.settings-row', h('div.row-text', h('div.row-title', title), sub ? h('div.row-sub', sub) : null), control || null);
@@ -262,23 +263,23 @@ export async function openSettingsDialog(app, section) {
   }
   body.appendChild(installGroup);
 
+  // ---------- Errores y sugerencias ----------
+  const bugBtn = h('button.btn.btn-sm.btn-outline', { type: 'button' }, iconEl('alert'), 'Informar');
+  const ideaBtn = h('button.btn.btn-sm.btn-outline', { type: 'button' }, iconEl('star'), 'Sugerir');
+  const feedback = async kind => {
+    const { openFeedbackDialog } = await import('./feedback.js');
+    openFeedbackDialog(app, kind);
+  };
+  bugBtn.addEventListener('click', () => feedback('bug'));
+  ideaBtn.addEventListener('click', () => feedback('idea'));
+  body.appendChild(h('div.settings-group', h('h3', 'Errores y sugerencias'),
+    row('Informar de un error', 'Cuéntanos qué ha fallado y lo arreglaremos.', bugBtn),
+    row('Sugerir una mejora', '¿Echas algo de menos? Escribe tu idea.', ideaBtn)));
+
   // ---------- Acerca de ----------
   const diag = h('button.btn.btn-sm.btn-outline', { type: 'button' }, iconEl('copy'), 'Copiar diagnóstico');
   diag.addEventListener('click', async () => {
-    const counts = await repo.counts().catch(() => ({}));
-    let est = {};
-    try { est = await navigator.storage.estimate(); } catch {}
-    const text = [
-      `Tablet Studio ${APP_VERSION}`,
-      `Fecha: ${new Date().toISOString()}`,
-      `Navegador: ${navigator.userAgent}`,
-      `Pantalla: ${screen.width}x${screen.height} @${devicePixelRatio}x · ventana ${innerWidth}x${innerHeight}`,
-      `Táctil: ${navigator.maxTouchPoints || 0} puntos · lápiz detectado: ${settings.get('penDetected')}`,
-      `Instalada: ${standalone}`,
-      `Persistente: ${app.persisted}`,
-      `Uso: ${formatBytes(est.usage || 0)} / ${formatBytes(est.quota || 0)}`,
-      `Datos: ${JSON.stringify(counts)}`
-    ].join('\n');
+    const text = await diagnosticText(app);
     try {
       await navigator.clipboard.writeText(text);
       toast('Diagnóstico copiado', { type: 'success' });
@@ -286,7 +287,7 @@ export async function openSettingsDialog(app, section) {
       await alertDialog(text, 'Diagnóstico');
     }
   });
-  body.appendChild(h('div.settings-group', h('h3', 'Acerca de'), row(`Tablet Studio ${APP_VERSION}`, 'Apuntes a mano y PDF anotados. Todo se guarda en este dispositivo; nada se envía a internet.', diag)));
+  body.appendChild(h('div.settings-group', h('h3', 'Acerca de'), row(`Tablet Studio ${APP_VERSION}`, 'Apuntes a mano y PDF anotados. Todo se guarda en este dispositivo; nada se envía a internet salvo los mensajes de error o sugerencia que tú escribas.', diag)));
 
   const m = openModal({ title: 'Ajustes', body, wide: true, buttons: [{ label: 'Cerrar', value: null, variant: 'btn-primary' }] });
   if (section === 'storage') setTimeout(() => storageGroup.scrollIntoView({ block: 'start' }), 80);

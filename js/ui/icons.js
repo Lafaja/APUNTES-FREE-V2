@@ -83,6 +83,11 @@ const P = {
   shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>',
   crop: '<path d="M6 2v14a2 2 0 0 0 2 2h14"/><path d="M18 22V8a2 2 0 0 0-2-2H2"/>',
   send: '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
+  ruler: '<path d="M3.5 15.5 15.5 3.5l5 5-12 12z"/><path d="m7 12 1.5 1.5M9.5 9.5 12 12M12 7l1.5 1.5M14.5 4.5 17 7"/>',
+  setSquare: '<path d="M4 4v16h16z"/><path d="M8 11.5V16h4.5z"/>',
+  cartabon: '<path d="M4 20V5l17 15z"/><path d="M7.5 13v4h4.6z"/>',
+  protractor: '<path d="M2.5 18a9.5 9.5 0 0 1 19 0z"/><path d="M12 18v-3M5.6 11.6l1.6 1.6M18.4 11.6l-1.6 1.6M12 8.5v1.5"/>',
+  compass: '<circle cx="12" cy="4.5" r="1.8"/><path d="M11 6.2 6 20M13 6.2 18 20M8.2 14h7.6"/>',
   grid: '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
   maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>',
   bringFront: '<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M4 16a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1"/>'

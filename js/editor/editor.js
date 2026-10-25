@@ -9,6 +9,7 @@ import { normalizeBg, pageSizeFor } from '../model/paper.js';
 import { DocumentViewer } from './viewer.js';
 import { InputController } from './input.js';
 import { PenTool, EraserTool, ShapeTool } from './tools.js';
+import { Guides, CompassTool } from './guides.js';
 import { Selection, LassoTool } from './selection.js';
 import { Toolbar } from './toolbar.js';
 import { RadialMenu } from './radial.js';
@@ -36,7 +37,8 @@ export class Editor {
       pen: new PenTool(this),
       eraser: new EraserTool(this),
       lasso: new LassoTool(this, this.selection),
-      shape: new ShapeTool(this)
+      shape: new ShapeTool(this),
+      compass: new CompassTool(this)
     };
     this.toolbar = new Toolbar(this, $('#ed-tools'));
     this.radial = new RadialMenu(this);
@@ -110,6 +112,7 @@ export class Editor {
     el.appendChild(header);
     this.body.appendChild(el);
     const viewer = new DocumentViewer(el, session, { editor: this });
+    viewer.guides = new Guides(viewer, this);
     const input = new InputController(viewer, this);
     const zoomCtl = this.buildZoomControls(viewer);
     viewer.el.appendChild(zoomCtl.el);
@@ -723,6 +726,31 @@ export class Editor {
     this.tool = tool;
     closePopover();
     this.toolbar.syncActive();
+    for (const p of this.panes) p.viewer.guides.update(); // el compás solo se ve con su herramienta
+  }
+
+  // ---------------- Instrumentos (regla, escuadra, cartabón, transportador) ----------------
+
+  instrumentShown(type) {
+    const v = this.viewer;
+    return !!(v && v.guides.has(type));
+  }
+
+  instrumentsShown() {
+    const v = this.viewer;
+    return !!(v && v.guides.count);
+  }
+
+  toggleInstrument(type) {
+    const v = this.viewer;
+    if (!v) return;
+    v.guides.toggle(type);
+    this.toolbar.syncActive();
+  }
+
+  clearInstruments() {
+    for (const p of this.panes) p.viewer.guides.clear();
+    this.toolbar.syncActive();
   }
 
   useLasso() {
@@ -991,6 +1019,7 @@ export class Editor {
     const ro = this.isReadOnly();
     openMenu(anchor, [
       { title: 'Documento' },
+      { label: 'Compartir para editar (.tstudio)…', icon: 'send', onClick: () => this.app.shareDocs([pane.session.id]) },
       { label: 'Exportar PDF o imagen…', icon: 'share', onClick: () => this.app.openExport(pane.session, pane.viewer.currentPage) },
       { label: 'Historial de versiones…', icon: 'history', onClick: () => this.app.openVersions(pane.session) },
       { label: 'Renombrar…', icon: 'edit', disabled: ro, onClick: () => this.renameDoc() },

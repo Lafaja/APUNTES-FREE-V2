@@ -19,6 +19,9 @@ const GAP = 22;
 const PAD_TOP = 24;
 const PAD_BOTTOM = 120;
 const PAD_X = 24;
+// Margen lateral extra (fracción del ancho de pantalla) para poder desplazar la hoja a un lado y llevar
+// a mitad de pantalla la zona en la que se escribe, aunque la hoja quepa entera.
+const SLACK_X = 0.35;
 export const MIN_ZOOM = 0.25;
 export const MAX_ZOOM = 6;
 const PIXEL_BUDGET = 6e6; // píxeles de dispositivo máximos por canvas de página (menos = repintados más rápidos)
@@ -557,7 +560,7 @@ export class DocumentViewer extends Emitter {
     const vw = this.scroll.clientWidth || 800;
     let maxW = 0;
     for (const r of refs) maxW = Math.max(maxW, r.w * z);
-    const stageW = Math.max(vw - 1, maxW + PAD_X * 2);
+    const stageW = Math.max(vw - 1, maxW + PAD_X * 2) + Math.round(vw * SLACK_X) * 2;
     const lefts = new Array(refs.length);
     const tops = new Array(refs.length);
     const ws = new Array(refs.length);
@@ -883,6 +886,8 @@ export class DocumentViewer extends Emitter {
     const P0y = p.st0 + p.fy0;
     const tx = f.x + p.sl0 - k * P0x;
     const ty = f.y + p.st0 - k * P0y;
+    p.tx = tx; // lo usan los instrumentos (guides.js) para seguir a la hoja durante el pellizco
+    p.ty = ty;
     this.stage.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`;
     this.emit('zoom-preview', { zoom: z });
   }
@@ -1053,7 +1058,12 @@ export class DocumentViewer extends Emitter {
     const st = this.scroll.scrollTop;
     const i = Math.max(0, this.pageIndexAtY(st + 1));
     const ratio = L.hs[i] ? (st - L.tops[i]) / L.hs[i] : 0;
-    return { page: i, ratio: clamp(ratio, -0.2, 1), zoom: this.zoom, left: this.scroll.scrollLeft, fit: this.fitMode };
+    return { page: i, ratio: clamp(ratio, -0.2, 1), zoom: this.zoom, dx: this.scroll.scrollLeft - this.centerLeft(), fit: this.fitMode };
+  }
+
+  /** scrollLeft con las páginas centradas en pantalla. */
+  centerLeft() {
+    return Math.max(0, (this.layout.stageW - this.scroll.clientWidth) / 2);
   }
 
   restoreView(view) {
@@ -1070,7 +1080,8 @@ export class DocumentViewer extends Emitter {
       const L = this.layout;
       const i = clamp(view.page, 0, L.tops.length - 1);
       this.scroll.scrollTop = L.tops[i] + (view.ratio || 0) * L.hs[i];
-      this.scroll.scrollLeft = Number.isFinite(view.left) ? view.left : Math.max(0, (L.stageW - this.scroll.clientWidth) / 2);
+      // dx: desplazamiento respecto al centro (las vistas antiguas guardaban `left` sin margen extra: se centran).
+      this.scroll.scrollLeft = this.centerLeft() + (Number.isFinite(view.dx) ? view.dx : 0);
     } else {
       this.scroll.scrollTop = 0;
       this.scroll.scrollLeft = Math.max(0, (this.layout.stageW - this.scroll.clientWidth) / 2);

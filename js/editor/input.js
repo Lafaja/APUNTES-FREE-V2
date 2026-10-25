@@ -20,7 +20,7 @@ export class InputController {
     this.editor = editor;
     this.el = viewer.scroll;
     this.touches = new Map();
-    this.mode = 'idle'; // idle | draw | pan | pinch | mousepan
+    this.mode = 'idle'; // idle | draw | pan | pinch | mousepan | guide (mover/girar una regla…)
     this.drawPointer = null; // { id, type, pageIndex, tool, pen }
     this.penUntil = 0;
     this.velocity = { x: 0, y: 0, samples: [] };
@@ -109,6 +109,10 @@ export class InputController {
         return;
       }
       if (e.button !== 0 || this.drawPointer) return;
+      if (!e.ctrlKey && !e.metaKey && this.startGuide(e)) {
+        try { this.el.setPointerCapture(e.pointerId); } catch {}
+        return;
+      }
       if (e.ctrlKey || e.metaKey) {
         // Ctrl+clic: seguir un enlace del PDF (con el ratón, el clic normal dibuja).
         e.preventDefault();
@@ -122,6 +126,16 @@ export class InputController {
     // ---- Táctil ----
     if (Date.now() < this.penUntil || (this.drawPointer && this.drawPointer.type === 'pen')) return; // palma
     e.preventDefault();
+    // Dedo sobre una regla, escuadra…: se mueve con un dedo y se gira con un segundo dedo.
+    if (this.mode === 'guide') {
+      this.viewer.guides.gestureAdd(e.pointerId, e.clientX, e.clientY);
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() });
+      return;
+    }
+    if (this.touches.size === 0 && this.startGuide(e)) {
+      this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() });
+      return;
+    }
     this.touches.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, t: performance.now() });
 
     if (this.touches.size === 1) {
@@ -177,6 +191,10 @@ export class InputController {
       }
       return;
     }
+    if (this.mode === 'guide') {
+      this.viewer.guides.gestureMove(e.pointerId, e.clientX, e.clientY);
+      return;
+    }
     if (this.mode === 'mousepan' && this.lastPan && e.pointerId === this.lastPan.id) {
       this.el.scrollLeft -= e.clientX - this.lastPan.x;
       this.el.scrollTop -= e.clientY - this.lastPan.y;
@@ -226,6 +244,13 @@ export class InputController {
       this.lastPan = null;
       return;
     }
+    if (this.mode === 'guide') {
+      const g = this.viewer.guides;
+      g.gestureEnd(e.pointerId);
+      this.touches.delete(e.pointerId);
+      if (!g.gesture) this.mode = 'idle';
+      return;
+    }
     if (type !== 'touch') return;
     if (!this.touches.has(e.pointerId)) return;
     this.touches.delete(e.pointerId);
@@ -272,7 +297,22 @@ export class InputController {
     else if (m.maxCount === 3) this.editor.redo();
   }
 
+  /** Empieza a mover un instrumento si el puntero cae sobre uno. */
+  startGuide(e) {
+    const g = this.viewer.guides;
+    const it = g && g.count ? g.hit(e.clientX, e.clientY) : null;
+    if (!it) return false;
+    g.gestureStart(it, e.pointerId, e.clientX, e.clientY);
+    this.mode = 'guide';
+    this.multiTap = null;
+    return true;
+  }
+
   cancelTouches() {
+    if (this.mode === 'guide') {
+      this.viewer.guides.gestureCancel();
+      this.mode = 'idle';
+    }
     if (this.mode === 'pinch') this.viewer.pinchEnd();
     if (this.drawPointer && this.drawPointer.type === 'touch') this.cancelDraw();
     this.touches.clear();
@@ -322,7 +362,7 @@ export class InputController {
   /** Menú circular al mantener quieto el lápiz o el dedo que dibuja (no con el lazo). */
   watchRadialDraw(e) {
     const d = this.drawPointer;
-    if (!d || d.id !== e.pointerId || d.tool === this.editor.tools.lasso) return;
+    if (!d || d.id !== e.pointerId || d.tool === this.editor.tools.lasso || d.tool === this.editor.tools.compass) return;
     this.editor.radial.watch(e, () => {
       if (this.drawPointer !== d) return;
       this.cancelDraw();

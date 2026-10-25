@@ -174,6 +174,7 @@ export class Library {
       { label: 'Nuevo apunte', icon: 'filePlus', onClick: () => this.app.newNote(this.folderId) },
       { label: 'Nueva carpeta', icon: 'folderPlus', onClick: () => this.app.newFolder(this.folderId) },
       { label: 'Importar PDF…', icon: 'fileUp', onClick: () => this.app.importPdf(this.folderId) },
+      { label: 'Importar apunte compartido…', icon: 'fileUp', hint: 'Archivo .tstudio', onClick: () => this.app.importShared(this.folderId) },
       'sep',
       { label: 'Pantalla dual…', icon: 'split', hint: 'Dos documentos a la vez', onClick: () => this.app.openDual() }
     ]);
@@ -800,6 +801,9 @@ export class Library {
         { label: allFav ? 'Quitar de favoritos' : 'Añadir a favoritos', icon: 'star', onClick: () => this.setFavorite(ids, !allFav) },
         { label: `Mover ${k} a…`, icon: 'folderInput', onClick: () => this.move(ids) },
         { label: `Duplicar ${k}`, icon: 'copy', onClick: () => this.duplicate(ids) },
+        ids.every(id => this.nodes.get(id)?.kind === 'doc')
+          ? { label: `Compartir ${k} (.tstudio)…`, icon: 'send', onClick: () => this.app.shareDocs(ids) }
+          : null,
         'sep',
         { label: `Mover ${k} a la papelera`, icon: 'trash', danger: true, onClick: () => this.trash(ids) }
       ]);
@@ -823,6 +827,7 @@ export class Library {
         : { label: 'Añadir a favoritos', icon: 'star', onClick: () => this.setFavorite([n.id], true) },
       { label: 'Mover a…', icon: 'folderInput', onClick: () => this.move([n.id]) },
       { label: 'Duplicar', icon: 'copy', onClick: () => this.duplicate([n.id]) },
+      !isFolder ? { label: 'Compartir para editar (.tstudio)…', icon: 'send', onClick: () => this.app.shareDocs([n.id]) } : null,
       !isFolder ? { label: 'Exportar PDF o imagen…', icon: 'share', onClick: () => this.app.exportFromLibrary(n.id) } : null,
       !isFolder ? { label: 'Historial de versiones…', icon: 'history', onClick: () => this.app.openVersionsById(n.id) } : null,
       'sep',

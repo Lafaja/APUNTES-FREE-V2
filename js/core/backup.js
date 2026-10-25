@@ -45,13 +45,18 @@ function pageToJSON(p) {
  * Escribe una copia en `writer`. Si hay sesiones abiertas se usa su estado en memoria
  * (lo más reciente, incluso si el guardado en disco hubiera fallado).
  */
-export async function writeBackup(writer, { docIds = null, onProgress = null } = {}) {
+export async function writeBackup(writer, { docIds = null, onProgress = null, share = false } = {}) {
   const allNodes = await repo.loadAllNodes();
   const byId = new Map(allNodes.map(n => [n.id, n]));
   let nodes = allNodes;
   if (docIds) {
     const keep = new Set();
     for (const id of docIds) {
+      // Archivo para compartir: solo los documentos, sin sus carpetas (quien lo recibe elige dónde van).
+      if (share) {
+        keep.add(id);
+        continue;
+      }
       let cur = byId.get(id);
       while (cur && !keep.has(cur.id)) {
         keep.add(cur.id);
@@ -109,7 +114,7 @@ export async function writeBackup(writer, { docIds = null, onProgress = null } =
   }
   await writer.add('nodes.json', JSON.stringify(nodesOut));
   await writer.add('blobs.json', JSON.stringify(blobIndex));
-  await writer.add('settings.json', JSON.stringify(settings.exportable()));
+  if (!share) await writer.add('settings.json', JSON.stringify(settings.exportable()));
   // Índice legible para humanos.
   const pathOf = n => {
     const parts = [];
@@ -122,12 +127,16 @@ export async function writeBackup(writer, { docIds = null, onProgress = null } =
     }
     return parts.join(' / ');
   };
-  const lines = ['COPIA DE SEGURIDAD DE TABLET STUDIO', `Fecha: ${new Date().toLocaleString('es-ES')}`, '',
-    'Para restaurarla: abre la app → Ajustes → Copias de seguridad → Restaurar copia.', '',
-    'DOCUMENTOS:'];
+  const lines = share
+    ? ['APUNTE COMPARTIDO DE TABLET STUDIO', `Fecha: ${new Date().toLocaleString('es-ES')}`, '',
+      'Para abrirlo: en la app, botón «+» → «Importar apunte compartido (.tstudio)».', '',
+      'DOCUMENTOS:']
+    : ['COPIA DE SEGURIDAD DE TABLET STUDIO', `Fecha: ${new Date().toLocaleString('es-ES')}`, '',
+      'Para restaurarla: abre la app → Ajustes → Copias de seguridad → Restaurar copia.', '',
+      'DOCUMENTOS:'];
   for (const { node, pages } of index) {
     const pdf = node.pdf && node.pdf.blobId ? blobIndex.find(b => b.id === node.pdf.blobId) : null;
-    lines.push(`- ${pathOf(node) ? pathOf(node) + ' / ' : ''}${node.name} (${pages} pág.)${node.deletedAt ? ' [en la papelera]' : ''}${pdf ? ` → PDF original: ${pdf.file}` : ''}`);
+    lines.push(`- ${pathOf(node) && !share ? pathOf(node) + ' / ' : ''}${node.name} (${pages} pág.)${node.deletedAt ? ' [en la papelera]' : ''}${pdf ? ` → PDF original: ${pdf.file}` : ''}`);
   }
   await writer.add('indice.txt', lines.join('\r\n'));
   await writer.add('manifest.json', JSON.stringify({
@@ -136,6 +145,7 @@ export async function writeBackup(writer, { docIds = null, onProgress = null } =
     app: 'Tablet Studio',
     createdAt: Date.now(),
     partial: !!docIds,
+    kind: share ? 'share' : 'backup',
     counts: { docs: docs.length, folders: nodesOut.length - docs.length, blobs: blobIndex.length },
     missingBlobs: missing
   }, null, 2));
@@ -201,21 +211,22 @@ export async function exportBackup({ docIds = null } = {}) {
 export async function inspectBackup(file) {
   const zr = new ZipReader(file);
   const manifest = await zr.readJSON('manifest.json');
-  if (!manifest || manifest.format !== BACKUP_FORMAT) throw new Error('Este archivo no es una copia de seguridad de Tablet Studio.');
+  if (!manifest || manifest.format !== BACKUP_FORMAT) throw new Error('Este archivo no es un apunte ni una copia de seguridad de Tablet Studio.');
   return { zr, manifest };
 }
 
 /**
  * Restaura una copia.
  *  mode 'merge': añade lo que falta; NUNCA sobrescribe documentos existentes.
- *  mode 'copy':  importa todo como copia dentro de una carpeta nueva.
+ *  mode 'copy':  importa todo como copia dentro de una carpeta nueva, o dentro de `into` (id de
+ *                carpeta, null = raíz) si se indica: así entra un apunte compartido, como uno propio.
  */
-export async function restoreBackup(file, { mode = 'merge', applySettings = false, onProgress = null } = {}) {
+export async function restoreBackup(file, { mode = 'merge', applySettings = false, onProgress = null, into } = {}) {
   const { zr, manifest } = await inspectBackup(file);
   const nodes = (await zr.readJSON('nodes.json')) || [];
   const blobs = (await zr.readJSON('blobs.json')) || [];
   const existing = new Map((await repo.loadAllNodes()).map(n => [n.id, n]));
-  const report = { folders: 0, docs: 0, pages: 0, skipped: 0, blobs: 0, errors: [] };
+  const report = { folders: 0, docs: 0, pages: 0, skipped: 0, blobs: 0, errors: [], docIds: [] };
 
   // 1) Binarios primero (así ninguna página queda apuntando a algo inexistente).
   let i = 0;
@@ -237,7 +248,10 @@ export async function restoreBackup(file, { mode = 'merge', applySettings = fals
   const importNodes = mode === 'copy' ? nodes.filter(n => !n.deletedAt) : nodes;
   const idMap = new Map();
   let rootFolder = null;
-  if (mode === 'copy') {
+  if (mode === 'copy' && into !== undefined) {
+    rootFolder = { id: into };
+    for (const n of importNodes) idMap.set(n.id, n.kind === 'folder' ? uid('f') : uid('d'));
+  } else if (mode === 'copy') {
     rootFolder = await repo.createFolder({ name: `Copia restaurada ${new Date(manifest.createdAt || Date.now()).toLocaleDateString('es-ES')}`, color: '#64748b' });
     for (const n of importNodes) idMap.set(n.id, n.kind === 'folder' ? uid('f') : uid('d'));
   }
@@ -255,6 +269,7 @@ export async function restoreBackup(file, { mode = 'merge', applySettings = fals
       continue;
     }
     const folder = { ...n, id: mode === 'copy' ? idMap.get(n.id) : n.id, name: cleanName(n.name, 'Carpeta'), parentId: mapParent(n.parentId) };
+    if (mode === 'copy') Object.assign(folder, { favorite: false, deletedAt: 0, trashedFrom: null });
     await repo.putNode(folder, { durability: 'strict' });
     report.folders++;
   }
@@ -297,8 +312,11 @@ export async function restoreBackup(file, { mode = 'merge', applySettings = fals
         thumbRev: 0,
         rev: (n.rev || 0) + 1
       };
+      // Una copia importada es del todo tuya: sin favoritos ni restos de la papelera de quien la mandó.
+      if (mode === 'copy') Object.assign(node, { favorite: false, deletedAt: 0, trashedFrom: null, openedAt: 0, updatedAt: Date.now() });
       await repo.putDocumentRaw(node, pages);
       report.docs++;
+      report.docIds.push(newDocId);
       report.pages += pages.length;
     } catch (err) {
       report.errors.push(`«${n.name}»: ${err.message}`);

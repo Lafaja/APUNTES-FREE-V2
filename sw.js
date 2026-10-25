@@ -3,10 +3,13 @@
 // AL PUBLICAR CAMBIOS: sube VERSION (y APP_VERSION en js/core/version.js). Así la app detecta la
 // nueva versión y ofrece «Actualizar» (guardando antes todo lo pendiente).
 
-const VERSION = '2.9.0';
+const VERSION = '2.10.0';
 const PREFIX = 'tablet-studio-v2-';
 const CACHE = `${PREFIX}${VERSION}`;
 const RUNTIME = `${PREFIX}runtime`;
+// Archivos recibidos con «Compartir → Tablet Studio» (Android) hasta que la app los importa.
+// Nombre fuera de PREFIX: las limpiezas de cachés viejas nunca lo borran.
+const SHARE_INBOX = 'tablet-studio-share-inbox';
 
 const PRECACHE = [
   './',
@@ -17,10 +20,12 @@ const PRECACHE = [
   './js/core/backup.js',
   './js/core/db.js',
   './js/core/events.js',
+  './js/core/feedback.js',
   './js/core/gdrive.js',
   './js/core/migrate.js',
   './js/core/repo.js',
   './js/core/settings.js',
+  './js/core/share.js',
   './js/core/textindex.js',
   './js/core/util.js',
   './js/core/version.js',
@@ -28,12 +33,15 @@ const PRECACHE = [
   './js/dialogs/basic.js',
   './js/dialogs/drive.js',
   './js/dialogs/export.js',
+  './js/dialogs/feedback.js',
   './js/dialogs/import-pdf.js',
   './js/dialogs/migration.js',
   './js/dialogs/pages.js',
   './js/dialogs/settings.js',
+  './js/dialogs/share.js',
   './js/dialogs/versions.js',
   './js/editor/editor.js',
+  './js/editor/guides.js',
   './js/editor/input.js',
   './js/editor/radial.js',
   './js/editor/recognize.js',
@@ -103,8 +111,30 @@ function isRuntimeAsset(url) {
   return /\/libs\/pdfjs\/(cmaps|standard_fonts|wasm|iccs)\//.test(url.pathname);
 }
 
+/** Guarda en SHARE_INBOX los archivos compartidos y abre la app, que los importa al arrancar. */
+async function receiveShare(req) {
+  const back = new URL('./?share-target=1', self.registration.scope).href;
+  try {
+    const form = await req.formData();
+    const cache = await caches.open(SHARE_INBOX);
+    const files = form.getAll('file').filter(f => f && typeof f !== 'string');
+    let i = 0;
+    for (const f of files) {
+      const key = new URL(`./__share-inbox/${Date.now()}-${i++}`, self.registration.scope).href;
+      await cache.put(key, new Response(f, { headers: { 'Content-Type': f.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(f.name || 'archivo') } }));
+    }
+  } catch (err) {
+    console.error('No se pudo recibir el archivo compartido', err);
+  }
+  return Response.redirect(back, 303);
+}
+
 self.addEventListener('fetch', event => {
   const req = event.request;
+  if (req.method === 'POST' && new URL(req.url).pathname.endsWith('/share-target')) {
+    event.respondWith(receiveShare(req));
+    return;
+  }
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;

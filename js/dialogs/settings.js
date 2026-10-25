@@ -1,7 +1,7 @@
 // Ajustes: apariencia, escritura, almacenamiento, copias de seguridad, versión anterior e instalación.
 
 import * as repo from '../core/repo.js';
-import { settings, applyTheme } from '../core/settings.js';
+import { settings, applyTheme, TIMINGS, timing } from '../core/settings.js';
 import { formatBytes, timeAgo, formatDateTime } from '../core/util.js';
 import { h, iconEl, clear } from '../ui/dom.js';
 import { openModal, alertDialog, confirmDialog } from '../ui/modal.js';
@@ -30,6 +30,27 @@ function segmented(options, value, onPick) {
     seg.appendChild(b);
   }
   return seg;
+}
+
+function fmtTiming(key, v) {
+  if (TIMINGS[key].unit === 'px') return `${v} px`;
+  return v >= 1000 ? `${(v / 1000).toFixed(2).replace(/0$/, '').replace('.', ',')} s` : `${v} ms`;
+}
+
+/** Fila con deslizador para un tiempo ajustable (se guarda al soltar, el número cambia al arrastrar). */
+function timingRow(key, title, sub) {
+  const t = TIMINGS[key];
+  const value = h('span.size-value', fmtTiming(key, timing(key)));
+  const input = h('input', { type: 'range', min: t.min, max: t.max, step: t.step, value: timing(key), 'aria-label': title });
+  input.addEventListener('input', () => { value.textContent = fmtTiming(key, Number(input.value)); });
+  input.addEventListener('change', () => settings.set(key, Number(input.value)));
+  const wrap = h('div.timing-row', row(title, `${sub} Normal: ${fmtTiming(key, t.def)}.`, null), h('div.size-row', input, value));
+  wrap.reset = () => {
+    input.value = t.def;
+    value.textContent = fmtTiming(key, t.def);
+    settings.set(key, t.def);
+  };
+  return wrap;
 }
 
 export async function openSettingsDialog(app, section) {
@@ -62,23 +83,44 @@ export async function openSettingsDialog(app, section) {
     h('div', { style: { paddingBottom: '12px' } }, segmented([
       { id: 'off', label: 'Desactivada' }, { id: 'soft', label: 'Suave' }, { id: 'normal', label: 'Normal' }, { id: 'strong', label: 'Fuerte' }
     ], settings.get('pressure'), v => settings.set('pressure', v))),
-    row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto medio segundo: la línea, círculo, rectángulo o triángulo se vuelve perfecto. Si sigues moviéndolo, vuelve a ser trazo a mano.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
+    row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto un momento (se ajusta en «Tiempos»): la línea, círculo, rectángulo o triángulo se vuelve perfecto. Sin levantarlo, en una línea cambias el ángulo (el primer punto queda fijo) y en un círculo el tamaño.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
     h('h3', { style: { marginTop: '18px' } }, 'Menú circular de herramientas'),
     row('Qué es', 'Un círculo con tus plumas, herramientas y colores. Elige arrastrando hasta una opción y soltando, o suelta y toca la opción. Puedes abrirlo de varias formas a la vez:', null),
     row('Mantener pulsado', 'Deja el lápiz o el dedo quieto sobre la página.', switchCtl(settings.get('radialMenu'), v => settings.set('radialMenu', v))),
     h('div', { style: { paddingBottom: '8px' } }, segmented([
       { id: 'both', label: 'Lápiz y dedo' }, { id: 'pen', label: 'Solo lápiz' }, { id: 'finger', label: 'Solo dedo' }
     ], settings.get('radialMenuInput'), v => settings.set('radialMenuInput', v))),
-    h('div', { style: { paddingBottom: '12px' } }, segmented([
-      { id: 350, label: 'Rápido' }, { id: 500, label: 'Normal' }, { id: 800, label: 'Lento' }
-    ], settings.get('radialMenuDelay'), v => settings.set('radialMenuDelay', v))),
     row('Doble toque con el dedo', 'Dos toques rápidos en el mismo sitio (cuando el dedo desplaza la página).', switchCtl(settings.get('radialDoubleTap'), v => settings.set('radialDoubleTap', v))),
     row('Botón lateral del lápiz', 'Pulsa el botón del lápiz y toca la pantalla. Sustituye al borrado con el botón (el extremo borrador sigue borrando).', switchCtl(settings.get('radialPenButton'), v => settings.set('radialPenButton', v))),
     row('Botón flotante', 'Un botón con una paleta en la esquina inferior izquierda del documento.', switchCtl(settings.get('radialFab'), v => settings.set('radialFab', v))),
     h('h3', { style: { marginTop: '18px' } }, 'Gestos'),
     row('Toque con dos dedos = deshacer', 'Y con tres dedos, rehacer. Con un dedo (si el dedo desplaza) se siguen los enlaces del PDF.', switchCtl(settings.get('twoFingerUndo'), v => settings.set('twoFingerUndo', v))),
     row('Añadir página al escribir al final', 'En apuntes, crea una hoja nueva cuando escribes en la parte baja de la última.', switchCtl(settings.get('autoAddPages'), v => settings.set('autoAddPages', v))),
-    row('Botones de zoom', 'Muestra − 100 % + en la esquina del documento.', switchCtl(settings.get('showZoomControls'), v => settings.set('showZoomControls', v)))
+    row('Botones de zoom', 'Muestra − 100 % + en la esquina del documento.', switchCtl(settings.get('showZoomControls'), v => settings.set('showZoomControls', v))),
+    row('Mantener pantalla completa', 'Al volver de otra app (Google, la cámara…) la pantalla completa vuelve sola con el primer toque. Se activa al pulsar el botón de pantalla completa y se quita al pulsarlo otra vez.', switchCtl(settings.get('keepFullscreen'), v => settings.set('keepFullscreen', v))),
+    row('Pestañas de documentos', 'Cada documento que abres queda como pestaña encima de la barra para cambiar entre ellos. «+» abre otro; la «x» cierra la pestaña (no borra nada).', null),
+    h('div', { style: { paddingBottom: '12px' } }, segmented([
+      { id: 'always', label: 'Siempre' }, { id: 'auto', label: 'Con 2 o más' }, { id: 'off', label: 'Ocultas' }
+    ], settings.get('tabsBar'), v => settings.set('tabsBar', v)))
+  ));
+
+  // ---------- Tiempos ----------
+  const timingRows = [
+    timingRow('shapeSnapDelay', 'Forma perfecta: tiempo quieto al final', 'Cuánto hay que dejar el lápiz quieto al acabar una línea o figura para que se vuelva recta o perfecta.'),
+    timingRow('shapeSnapTolerance', 'Forma perfecta: cuánto se puede mover', 'Temblor del lápiz que aún cuenta como «quieto». Más alto = más fácil que salte; más bajo = menos saltos sin querer.'),
+    timingRow('radialMenuDelay', 'Menú circular: mantener pulsado', 'Cuánto mantener el lápiz o el dedo quieto para que salga el menú.'),
+    timingRow('doubleTapMs', 'Doble toque: separación máxima', 'Tiempo máximo entre los dos toques del doble toque con el dedo.'),
+    timingRow('gestureTapMs', 'Toques con dedos: duración máxima', 'Lo que puede durar un toque (dos dedos = deshacer, tres = rehacer, un dedo = enlace). Súbelo si a veces no lo reconoce.'),
+    timingRow('palmGuardMs', 'Rechazo de palma tras el lápiz', 'Tiempo durante el que se ignoran los dedos después de levantar el lápiz. Súbelo si la mano mueve la página sin querer.'),
+    timingRow('dragHoldMs', 'Biblioteca: mantener para arrastrar', 'Cuánto mantener pulsada una tarjeta para moverla a una carpeta.')
+  ];
+  body.appendChild(h('div.settings-group',
+    h('h3', 'Tiempos'),
+    ...timingRows,
+    h('div', { style: { padding: '8px 0 12px' } }, h('button.btn.btn-sm.btn-outline', { type: 'button', on: { click: () => {
+      timingRows.forEach(r => r.reset());
+      toast('Tiempos restablecidos', { type: 'success' });
+    } } }, 'Restablecer tiempos'))
   ));
 
   // ---------- Almacenamiento ----------

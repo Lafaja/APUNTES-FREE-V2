@@ -3,13 +3,12 @@
 // mantener pulsado sin moverse, doble toque con el dedo, botón lateral del lápiz o botón flotante.
 // Se elige arrastrando hasta la opción y soltando, o soltando primero y tocando la opción.
 
-import { settings, INK_COLORS } from '../core/settings.js';
+import { settings, INK_COLORS, timing } from '../core/settings.js';
 import { h, $ } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { BRUSHES } from '../render/ink.js';
 
 const BRUSH_ICONS = { pen: 'pen', fountain: 'fountain', brush: 'brush', pencil: 'pencil', highlighter: 'highlighter' };
-const DOUBLE_TAP_MS = 350;
 const DOUBLE_TAP_PX = 40;
 const TOOLS = [
   { id: 'eraser', icon: 'eraser', name: 'Borrador' },
@@ -55,7 +54,7 @@ export class RadialMenu {
     if (!settings.get('radialDoubleTap') || this.el) return false;
     const now = performance.now();
     const prev = this.lastTap;
-    if (prev && now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < DOUBLE_TAP_PX) {
+    if (prev && now - prev.t < timing('doubleTapMs') && Math.hypot(x - prev.x, y - prev.y) < DOUBLE_TAP_PX) {
       this.lastTap = null;
       this.open(x, y, null);
       return true;
@@ -112,7 +111,7 @@ export class RadialMenu {
       this.cancelWatch();
       if (onFire) onFire();
       this.open(w.x, w.y, w.id);
-    }, Number(settings.get('radialMenuDelay')) || 500);
+    }, timing('radialMenuDelay'));
     this.watchState = w;
   }
 
@@ -171,7 +170,10 @@ export class RadialMenu {
     tools.forEach((t, i) => {
       const b = h('button.radial-item.radial-tool', { type: 'button', title: t.name, 'aria-label': t.name });
       b.innerHTML = icon(t.icon);
-      if (t.color) b.appendChild(h('span.radial-badge', { style: { backgroundColor: t.color } }));
+      if (t.color) {
+        b.style.setProperty('--ink', t.color);
+        b.appendChild(h('span.radial-badge', { style: { backgroundColor: t.color } }));
+      }
       if (t.active) b.classList.add('active');
       b._choose = () => (t.kind === 'preset' ? this.editor.selectPreset(t.id) : this.editor.setTool(t.id));
       place(b, -Math.PI / 2 + (i / tools.length) * Math.PI * 2, innerR);

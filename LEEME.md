@@ -36,14 +36,21 @@ Sube el número de versión en `sw.js` (`VERSION`) y en `js/core/version.js`. La
   «Seleccionar»). Aparecen en la pestaña «Favoritos» de la biblioteca.
 - **Arrastrar a carpetas**: con ratón, arrastra; con el dedo o el lápiz, mantén pulsado hasta que
   la tarjeta «se levante» y arrástrala a una carpeta o a la ruta de arriba. Se puede deshacer.
-- **Pestañas**: cada documento que abres queda como pestaña encima de la barra (aparecen cuando
-  hay dos o más). «+» abre otro; la «x» cierra la pestaña (no borra nada).
+- **Pestañas**: cada documento que abres queda como pestaña encima de la barra (por defecto siempre
+  visibles; en Ajustes → Gestos se puede elegir «Con 2 o más» u «Ocultas»). «+» abre otro; la «x»
+  cierra la pestaña (no borra nada).
 - **Marcadores de página**: el marcador de la barra marca la página que ves (cinta roja).
   Botón de páginas → pestaña «Marcadores».
 - **Índice del PDF**: botón de páginas → «Índice del PDF» (si el PDF lo trae). Los enlaces internos
   del PDF se siguen tocando con el dedo (cuando el dedo desplaza) o con Ctrl+clic; aparece «Volver».
 - **Formas perfectas**: al acabar un trazo, deja el lápiz quieto medio segundo y la línea, círculo,
   elipse, rectángulo, triángulo o polígono regular se vuelve perfecto. Se desactiva en Ajustes.
+  Sin levantar el lápiz: en una **línea** el primer punto queda fijo y moviendo el lápiz cambias el ángulo
+  y el largo (se ve el ángulo; se imanta a 0°, 45°, 90°…); en un **círculo** el centro queda fijo y cambias
+  el tamaño (aparece «Círculo perfecto»).
+- **Tiempos** (Ajustes → Tiempos): deslizadores para el tiempo quieto de las formas perfectas y su
+  tolerancia, mantener pulsado del menú circular, doble toque, toques con dedos, rechazo de palma y
+  mantener para arrastrar en la biblioteca. «Restablecer tiempos» vuelve a los valores normales.
 
 ## Copia en Google Drive (opcional)
 Ajustes → «Copia en Google Drive» → «Configurar…». Google exige un «ID de cliente» propio (gratis):

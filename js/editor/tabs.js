@@ -1,6 +1,6 @@
 // Pestañas de documentos: los documentos abiertos recientemente quedan como pestañas encima de la
 // barra del editor para cambiar entre ellos sin volver a la biblioteca. Se recuerdan entre sesiones.
-// La barra solo aparece cuando hay al menos dos pestañas.
+// Ajustes → `tabsBar`: siempre visible (por defecto), solo con dos o más pestañas, u oculta.
 
 import { settings } from '../core/settings.js';
 import { h, iconEl, $, clear } from '../ui/dom.js';
@@ -13,6 +13,9 @@ export class DocTabs {
     this.el = $('#ed-tabs');
     this.screen = $('#screen-editor');
     this.el.addEventListener('click', e => this.onClick(e));
+    settings.on('change', ({ key }) => {
+      if (key === 'tabsBar' || key === '*') this.render();
+    });
     // Clic con la rueda del ratón = cerrar pestaña (como en los navegadores).
     this.el.addEventListener('auxclick', e => {
       if (e.button !== 1) return;
@@ -77,7 +80,8 @@ export class DocTabs {
 
   render() {
     const list = this.ids();
-    const show = list.length >= 2 && this.editor.isOpen();
+    const mode = settings.get('tabsBar');
+    const show = this.editor.isOpen() && mode !== 'off' && list.length >= (mode === 'auto' ? 2 : 1);
     this.el.hidden = !show;
     this.screen.classList.toggle('has-tabs', show);
     if (!show) {

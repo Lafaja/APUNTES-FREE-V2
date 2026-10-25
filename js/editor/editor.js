@@ -412,17 +412,29 @@ export class Editor {
     };
     document.addEventListener('fullscreenchange', sync);
     document.addEventListener('webkitfullscreenchange', sync);
+    // Mantener la pantalla completa: al volver de otra app (o si el sistema la quita) no se puede
+    // recuperar sola, el navegador exige un toque. Se recupera en el primer toque, sin hacer nada más.
+    const restore = () => {
+      if (!settings.get('keepFullscreen') || document.fullscreenElement || document.webkitFullscreenElement) return;
+      if (document.querySelector('.modal-backdrop')) return; // no reaparecer mientras se usa un diálogo
+      this.enterFullscreen().catch(() => {});
+    };
+    for (const type of ['pointerup', 'touchend', 'click']) document.addEventListener(type, restore, { capture: true, passive: true });
+  }
+
+  async enterFullscreen() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
   }
 
   async toggleFullscreen() {
     const on = !!(document.fullscreenElement || document.webkitFullscreenElement);
     try {
+      // El botón decide: activarla la deja fija (vuelve sola tras cambiar de app); desactivarla la quita.
+      settings.set('keepFullscreen', !on);
       if (on) await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen());
-      else {
-        const el = document.documentElement;
-        if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
-        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-      }
+      else await this.enterFullscreen();
     } catch (err) {
       toast('El navegador no ha permitido la pantalla completa. Instalar la app también quita sus barras.', { type: 'warn', duration: 5000 });
     }

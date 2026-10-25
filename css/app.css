@@ -114,6 +114,9 @@ img { -webkit-user-drag: none; }
 .muted { color: var(--text-3); }
 
 .svg-icon { width: 20px; height: 20px; flex: none; display: block; }
+.svg-icon .ic-ink { fill: var(--ink, currentColor); }
+.svg-icon .ic-ink-soft { fill: var(--ink, currentColor); fill-opacity: 0.4; }
+.svg-icon .ic-soft { fill: currentColor; fill-opacity: 0.16; }
 .icon { display: inline-flex; align-items: center; justify-content: center; }
 
 .screen {
@@ -397,9 +400,6 @@ body.lib-dragging, body.lib-dragging * { cursor: grabbing !important; }
   overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain;
 }
 .ed-tabs::-webkit-scrollbar { display: none; }
-/* En pantalla completa se aprovecha todo el alto: sin fila de pestañas de documentos. */
-body.is-fullscreen .ed-tabs { display: none !important; }
-body.is-fullscreen #screen-editor.has-tabs .ed-toolbar { padding-top: calc(6px + var(--safe-top)); }
 #screen-editor.has-tabs .ed-toolbar { padding-top: 6px; min-height: var(--bar-h); }
 .ed-tab {
   flex: 0 1 auto; min-width: 0; max-width: 230px; display: flex; align-items: center;
@@ -682,6 +682,9 @@ body.is-fullscreen #screen-editor.has-tabs .ed-toolbar { padding-top: calc(6px +
 .color-choice.add .svg-icon { width: 16px; height: 16px; }
 .size-row { display: flex; align-items: center; gap: 10px; }
 .size-row input[type="range"] { flex: 1; }
+.timing-row { padding-bottom: 10px; }
+.timing-row .settings-row { padding-bottom: 2px; }
+.timing-row .size-value { min-width: 64px; }
 .size-value { font-variant-numeric: tabular-nums; font-weight: 700; min-width: 44px; text-align: right; font-size: 13px; }
 .size-presets { display: flex; gap: 6px; margin-top: 8px; }
 .size-preset {

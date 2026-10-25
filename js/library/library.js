@@ -1,7 +1,7 @@
 // Biblioteca: carpetas y documentos, búsqueda, recientes, papelera y selección múltiple.
 
 import * as repo from '../core/repo.js';
-import { settings } from '../core/settings.js';
+import { settings, timing } from '../core/settings.js';
 import { formatDate, timeAgo, debounce } from '../core/util.js';
 import { loadIfIndexed, queueIndex, indexFailed, textIndexEvents, findInPage, snippetAt, normalizeQuery } from '../core/textindex.js';
 import { h, iconEl, $, $$, clear } from '../ui/dom.js';
@@ -546,7 +546,7 @@ export class Library {
         d.longPressed = true;
         card.classList.add('lifted');
         if (navigator.vibrate) try { navigator.vibrate(12); } catch {}
-      }, 420);
+      }, timing('dragHoldMs'));
     }
     window.addEventListener('pointermove', this._dragMove, { passive: false });
     window.addEventListener('pointerup', this._dragUp);
@@ -781,6 +781,30 @@ export class Library {
   // ------------------------------------------------------------------
 
   openNodeMenu(n, anchor) {
+    // Con varios seleccionados y el menú abierto sobre uno de ellos, las acciones valen para todos.
+    if (this.selecting && this.selected.has(n.id) && this.selected.size > 1) {
+      const ids = [...this.selected];
+      const k = ids.length;
+      if (n.deletedAt) {
+        openMenu(anchor, [
+          { title: `${k} seleccionados` },
+          { label: `Restaurar ${k}`, icon: 'restore', onClick: () => this.restore(ids) },
+          'sep',
+          { label: `Eliminar ${k} para siempre`, icon: 'trash', danger: true, onClick: () => this.deleteForever(ids) }
+        ]);
+        return;
+      }
+      const allFav = ids.every(id => this.nodes.get(id)?.favorite);
+      openMenu(anchor, [
+        { title: `${k} seleccionados` },
+        { label: allFav ? 'Quitar de favoritos' : 'Añadir a favoritos', icon: 'star', onClick: () => this.setFavorite(ids, !allFav) },
+        { label: `Mover ${k} a…`, icon: 'folderInput', onClick: () => this.move(ids) },
+        { label: `Duplicar ${k}`, icon: 'copy', onClick: () => this.duplicate(ids) },
+        'sep',
+        { label: `Mover ${k} a la papelera`, icon: 'trash', danger: true, onClick: () => this.trash(ids) }
+      ]);
+      return;
+    }
     if (n.deletedAt) {
       openMenu(anchor, [
         { label: 'Restaurar', icon: 'restore', onClick: () => this.restore([n.id]) },

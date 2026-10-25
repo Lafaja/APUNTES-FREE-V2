@@ -37,6 +37,7 @@ export class Toolbar {
     for (const p of presets) {
       const b = h('button.tool-btn', { type: 'button', title: `${BRUSHES[p.t]?.name || 'Pluma'} (toca otra vez para ajustes)`, dataset: { preset: p.id } });
       b.innerHTML = icon(BRUSH_ICONS[p.t] || 'pen');
+      b.style.setProperty('--ink', p.c); // la punta del icono lleva el color de la tinta
       const bar = h('span.tool-color', { style: { color: p.c } });
       b.appendChild(bar);
       if (ed.tool === 'pen' && p.id === activeId) b.classList.add('active');

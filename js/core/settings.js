@@ -23,6 +23,24 @@ export const DEFAULT_PRESETS = [
   { id: 'hl-yellow', t: 'highlighter', c: '#facc15', w: 16 }
 ];
 
+// Tiempos y tolerancias que el usuario puede ajustar (Ajustes → Tiempos). min/max/step para el deslizador.
+export const TIMINGS = {
+  shapeSnapDelay: { def: 550, min: 150, max: 2000, step: 50, unit: 'ms' }, // lápiz quieto al final del trazo → forma perfecta
+  shapeSnapTolerance: { def: 4, min: 1, max: 16, step: 1, unit: 'px' }, // movimiento que aún cuenta como "quieto"
+  radialMenuDelay: { def: 500, min: 200, max: 1500, step: 50, unit: 'ms' }, // mantener pulsado → menú circular
+  doubleTapMs: { def: 350, min: 150, max: 800, step: 25, unit: 'ms' }, // separación máxima entre los dos toques
+  gestureTapMs: { def: 280, min: 120, max: 700, step: 20, unit: 'ms' }, // duración máxima de un toque (2 dedos = deshacer)
+  palmGuardMs: { def: 500, min: 0, max: 2000, step: 50, unit: 'ms' }, // dedos ignorados tras usar el lápiz
+  dragHoldMs: { def: 420, min: 150, max: 1500, step: 30, unit: 'ms' } // biblioteca: mantener para arrastrar una tarjeta
+};
+
+/** Valor de un tiempo ajustable, siempre dentro de sus límites. */
+export function timing(key) {
+  const t = TIMINGS[key];
+  const v = Number(settings.get(key));
+  return Number.isFinite(v) ? Math.min(t.max, Math.max(t.min, v)) : t.def;
+}
+
 const DEFAULTS = {
   theme: 'auto',
   fingerMode: 'auto', // 'auto' (dibuja hasta detectar lápiz) | 'pan' | 'draw'
@@ -46,6 +64,14 @@ const DEFAULTS = {
   radialFab: false, // … con un botón flotante en la esquina del documento
   radialMenuInput: 'both', // 'both' | 'pen' | 'finger'
   radialMenuDelay: 500, // ms
+  shapeSnapDelay: 550,
+  shapeSnapTolerance: 4,
+  doubleTapMs: 350,
+  gestureTapMs: 280,
+  palmGuardMs: 500,
+  dragHoldMs: 420,
+  keepFullscreen: false, // volver a pantalla completa al primer toque si el sistema la quitó (cambiar de app…)
+  tabsBar: 'always', // barra de pestañas: 'always' | 'auto' (con 2 o más) | 'off'
   openTabs: [], // pestañas de documentos (ids)
   units: 'mm', // unidades para mostrar grosores y medidas: 'mm' | 'cm' | 'pt' | 'px'
   splitOrientation: 'auto', // pantalla dual: 'auto' (según el giro) | 'side' | 'stack'
@@ -107,7 +133,11 @@ class Settings extends Emitter {
     if (!['mm', 'cm', 'pt', 'px'].includes(d.units)) d.units = 'mm';
     if (!['off', 'soft', 'normal', 'strong'].includes(d.pressure)) d.pressure = 'normal';
     if (!['both', 'pen', 'finger'].includes(d.radialMenuInput)) d.radialMenuInput = 'both';
-    if (![350, 500, 800].includes(d.radialMenuDelay)) d.radialMenuDelay = 500;
+    for (const [k, t] of Object.entries(TIMINGS)) {
+      const v = Number(d[k]);
+      d[k] = Number.isFinite(v) ? Math.min(t.max, Math.max(t.min, Math.round(v))) : t.def;
+    }
+    if (!['always', 'auto', 'off'].includes(d.tabsBar)) d.tabsBar = 'always';
     d.openTabs = Array.isArray(d.openTabs) ? d.openTabs.filter(id => typeof id === 'string').slice(-12) : [];
     d.splitRatio = Number.isFinite(d.splitRatio) ? Math.min(0.8, Math.max(0.2, d.splitRatio)) : 0.5;
     d.eraser = { mode: d.eraser?.mode === 'precision' ? 'precision' : 'stroke', size: Number.isFinite(d.eraser?.size) ? d.eraser.size : 18 };

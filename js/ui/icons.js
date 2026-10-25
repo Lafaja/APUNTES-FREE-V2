@@ -1,4 +1,7 @@
-// Iconos SVG de trazo (24×24). Diseño basado en el estilo de Lucide/Feather (licencias ISC/MIT).
+// Iconos SVG de trazo (24×24). Diseño basado en el estilo de Lucide/Feather (licencias ISC/MIT), salvo las
+// herramientas de escritura, que son propias: todas en la misma diagonal (45°). Dos clases de relleno:
+// `ic-ink` toma el color de `--ink` (la tinta de la pluma; sin él, el del texto), `ic-ink-soft` es ese color
+// atenuado (cuerpo de la pluma) e `ic-soft` es un relleno tenue del color del texto.
 
 const P = {
   arrowLeft: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
@@ -50,15 +53,15 @@ const P = {
   chevronUp: '<path d="m18 15-6-6-6 6"/>',
   edit: '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
   sort: '<path d="M3 6h12M3 12h8M3 18h5M18 8v13M15 18l3 3 3-3"/>',
-  image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/>',
-  lasso: '<path d="M7 22a5 5 0 0 1-2-4"/><path d="M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1"/><circle cx="5" cy="16" r="2"/>',
-  shapes: '<rect x="3" y="3" width="8" height="8" rx="1"/><circle cx="17" cy="7" r="4"/><path d="m12 21 4.5-7 4.5 7z"/>',
-  eraser: '<path d="m7 21-4.3-4.3a1 1 0 0 1 0-1.4l10-10a1 1 0 0 1 1.4 0l5.6 5.6a1 1 0 0 1 0 1.4L11 21z"/><path d="M22 21H7M5 11l9 9"/>',
-  pen: '<path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4.5 1.5L5 15z"/><path d="m14.5 5.5 4 4"/>',
-  fountain: '<path d="m12 19 7-7 3 3-7 7z"/><path d="m18 13-1.5-7.5L2 2l3.5 14.5L13 18z"/><path d="m2 2 7.6 7.6"/><circle cx="11" cy="11" r="2"/>',
-  brush: '<path d="m9.1 11.9 8-8.1a2.9 2.9 0 1 1 4.1 4.1l-8.1 8"/><path d="M7.1 14.9c-1.7 0-3 1.4-3 3 0 1.3-2.5 1.5-2 2 1.1 1.1 2.5 2 4 2 2.2 0 4-1.8 4-4a3 3 0 0 0-3-3z"/>',
-  pencil: '<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/><path d="m15 5 4 4"/>',
-  highlighter: '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
+  image: '<rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.8" class="ic-ink"/><path d="m3.5 18.5 5.6-5.6a1.5 1.5 0 0 1 2.1 0L20.5 20.2" class="ic-soft"/>',
+  lasso: '<ellipse cx="13" cy="10" rx="8" ry="5.5" stroke-dasharray="3.2 2.6"/><path d="M7.2 14.2c-1.6 1.4-2.3 3.6-1.4 6.3"/><circle cx="7.2" cy="14.2" r="1.6" class="ic-ink"/>',
+  shapes: '<rect x="3" y="10" width="10" height="10" rx="1.8"/><circle cx="15.5" cy="8.5" r="5.5" class="ic-soft"/>',
+  eraser: '<g transform="rotate(45 12 12)"><rect x="7.5" y="4" width="9" height="15" rx="2.2"/><path d="M7.5 12.5h9V17a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2z" class="ic-soft"/></g><path d="M14 21h7"/>',
+  pen: '<g transform="rotate(45 12 12)"><path d="M9.5 15V5.5a2.5 2.5 0 0 1 5 0V15"/><path d="M9.5 10.5h5V15h-5z" class="ic-ink-soft"/><path d="M9.5 15h5L12 20.5z" class="ic-ink"/></g>',
+  fountain: '<g transform="rotate(45 12 12)"><path d="M10 9.5V4.5a2 2 0 0 1 4 0v5"/><path d="M8.6 10.5h6.8C15.4 14.5 13 18 12 21.5 11 18 8.6 14.5 8.6 10.5z" class="ic-ink"/><path d="M12 14.6v3.4"/></g>',
+  brush: '<g transform="rotate(45 12 12)"><path d="M10.8 11V3.5a1.2 1.2 0 0 1 2.4 0V11"/><path d="M9.5 11h5v3h-5z"/><path d="M9.5 14c-.6 3.6.9 5.7 2.5 8 1.6-2.3 3.1-4.4 2.5-8z" class="ic-ink"/></g>',
+  pencil: '<g transform="rotate(45 12 12)"><path d="M9.5 15V4.5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5V15"/><path d="M9.5 6.5h5V15h-5z" class="ic-ink-soft"/><path d="M9.5 15h5L12 21z"/><path d="M11 18.6h2L12 21z" class="ic-ink"/></g>',
+  highlighter: '<g transform="rotate(45 12 12)"><path d="M8.5 13V4.5a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2V13z" class="ic-ink-soft"/><path d="M9.5 13h5v2.5h-5z"/><path d="M10 15.5h4v3l-4 2z" class="ic-ink"/></g>',
   text: '<path d="M4 7V5h16v2M9 20h6M12 5v15"/>',
   line: '<path d="M5 19 19 5"/>',
   arrow: '<path d="M5 19 19 5M10 5h9v9"/>',

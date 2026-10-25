@@ -4,12 +4,11 @@
 
 import { makeStroke, strokeBBox, strokeHitByEraser, splitStrokeByEraser } from '../model/stroke.js';
 import { drawLiveStroke, drawStroke, BRUSHES, thinningFor } from '../render/ink.js';
-import { settings } from '../core/settings.js';
+import { settings, timing } from '../core/settings.js';
 import { recognizeShape } from './recognize.js';
 
-// Formas perfectas: si el lápiz se queda quieto este tiempo al final de un trazo, se intenta reconocer.
-const HOLD_MS = 550;
-const HOLD_MOVE_PX = 4; // movimiento (en píxeles de pantalla) que se considera "seguir dibujando"
+// Formas perfectas: si el lápiz se queda quieto `shapeSnapDelay` ms al final de un trazo (moviéndose
+// menos de `shapeSnapTolerance` píxeles de pantalla), se intenta reconocer. Ambos en Ajustes → Tiempos.
 const SNAP_MIN_PX = 30; // tamaño mínimo en pantalla para convertir (evita convertir letras)
 
 function withPageClip(viewer, pageIndex, fn) {
@@ -54,6 +53,7 @@ export class PenTool {
     this.predicted = null;
     this.startTime = performance.now();
     this.snapped = null;
+    this.snapEdit = null;
     this.holdAnchor = { x: ctx.x, y: ctx.y };
     this.armHold();
     this.render();
@@ -65,7 +65,7 @@ export class PenTool {
     clearTimeout(this.holdTimer);
     this.holdTimer = null;
     if (!settings.get('shapeSnap')) return;
-    this.holdTimer = setTimeout(() => this.onHold(), HOLD_MS);
+    this.holdTimer = setTimeout(() => this.onHold(), timing('shapeSnapDelay'));
   }
 
   onHold() {
@@ -74,6 +74,7 @@ export class PenTool {
     const zoom = this.ctx.viewer.zoom;
     const shape = recognizeShape(this.live.pts, { minSize: SNAP_MIN_PX / zoom });
     if (!shape) return;
+    this.snapEdit = editableShape(shape);
     this.snapped = this.shapeStroke(shape);
     if (navigator.vibrate) try { navigator.vibrate(10); } catch {}
     this.render();
@@ -101,11 +102,22 @@ export class PenTool {
     if (!this.live) return;
     const pts = this.live.pts;
     // Si el lápiz se mueve de verdad, se sigue dibujando a mano (y se deshace la forma si la había).
-    const tol = HOLD_MOVE_PX / this.ctx.viewer.zoom;
+    const tol = timing('shapeSnapTolerance') / this.ctx.viewer.zoom;
+    // Línea o círculo ya perfectos: seguir moviendo el lápiz los ajusta (ángulo/largo o tamaño).
+    if (this.snapped && this.snapEdit && points.length) {
+      const p = points[points.length - 1];
+      if (Math.hypot(p.x - this.holdAnchor.x, p.y - this.holdAnchor.y) > tol || this.snapEdit.moved) {
+        this.snapEdit.moved = true;
+        this.snapped = this.shapeStroke(adjustShape(this.snapEdit, p));
+        this.scheduleRender();
+      }
+      return;
+    }
     for (const p of points) {
       if (Math.hypot(p.x - this.holdAnchor.x, p.y - this.holdAnchor.y) > tol) {
         this.holdAnchor = { x: p.x, y: p.y };
         if (this.snapped) this.snapped = null;
+        this.snapEdit = null;
         this.armHold();
       }
     }
@@ -144,6 +156,7 @@ export class PenTool {
     }
     if (this.snapped) {
       withPageClip(viewer, pageIndex, c => drawLiveStroke(c, this.snapped));
+      if (this.snapEdit) drawSnapLabel(viewer, pageIndex, this.snapEdit);
       return;
     }
     withPageClip(viewer, pageIndex, c => {
@@ -168,6 +181,7 @@ export class PenTool {
     if (this.snapped) {
       const shape = this.snapped;
       this.snapped = null;
+      this.snapEdit = null;
       viewer.session.addStrokes(pageId, [shape], { origin: viewer, label: 'Forma' });
       this.editor.afterStroke(viewer, pageIndex, strokeBBox(shape));
       requestAnimationFrame(() => {
@@ -200,8 +214,106 @@ export class PenTool {
     this.holdTimer = null;
     this.live = null;
     this.snapped = null;
+    this.snapEdit = null;
     if (this.ctx) this.ctx.viewer.clearOverlay();
   }
+}
+
+// ---------------- Ajuste de la forma perfecta tras reconocerla ----------------
+
+const DEG = Math.PI / 180;
+const ANGLE_MAGNET = 3; // grados: cerca de un múltiplo de 45° se queda exacto
+
+/** Estado editable de una línea (primer punto fijo) o un círculo (centro fijo); null para el resto. */
+function editableShape(shape) {
+  const P = shape.pts;
+  if (shape.type === 'line') return { type: 'line', ax: P[0], ay: P[1], bx: P[2], by: P[3], moved: false };
+  if (shape.type === 'circle') {
+    let cx = 0, cy = 0;
+    const n = P.length / 2;
+    for (let i = 0; i < P.length; i += 2) { cx += P[i]; cy += P[i + 1]; }
+    cx /= n;
+    cy /= n;
+    return { type: 'circle', cx, cy, r: Math.hypot(P[0] - cx, P[1] - cy), moved: false };
+  }
+  return null;
+}
+
+/** Ángulo de la línea en grados (0 = hacia la derecha, en sentido antihorario, 0–359). */
+function lineAngle(e) {
+  const a = Math.atan2(-(e.by - e.ay), e.bx - e.ax) / DEG;
+  return (Math.round(a) + 360) % 360;
+}
+
+/** Recalcula la forma con el lápiz en `p`: la línea apunta al lápiz, el círculo pasa por él. */
+function adjustShape(e, p) {
+  if (e.type === 'line') {
+    const len = Math.hypot(p.x - e.ax, p.y - e.ay);
+    let ang = Math.atan2(p.y - e.ay, p.x - e.ax);
+    const snap = Math.round(ang / (45 * DEG)) * 45 * DEG;
+    if (Math.abs(ang - snap) < ANGLE_MAGNET * DEG) ang = snap;
+    e.bx = e.ax + Math.cos(ang) * len;
+    e.by = e.ay + Math.sin(ang) * len;
+    return { type: 'line', pts: [e.ax, e.ay, e.bx, e.by], closed: false };
+  }
+  e.r = Math.max(1, Math.hypot(p.x - e.cx, p.y - e.cy));
+  return { type: 'circle', pts: circlePoints(e.cx, e.cy, e.r), closed: true };
+}
+
+function circlePoints(cx, cy, r) {
+  const n = Math.max(40, Math.min(120, Math.round(r / 1.5)));
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    pts.push(cx + r * Math.cos(t), cy + r * Math.sin(t));
+  }
+  return pts;
+}
+
+/** Etiqueta junto a la forma: el ángulo de la línea o «Círculo perfecto» (con el centro marcado). */
+function drawSnapLabel(viewer, pageIndex, e) {
+  const ctx = viewer.octx;
+  const m = viewer.overlayTransform(pageIndex);
+  const d = viewer.dpr;
+  const toScreen = (x, y) => [m[0] * x + m[4], m[3] * y + m[5]];
+  let text;
+  let x;
+  let y;
+  if (e.type === 'line') {
+    const ang = lineAngle(e);
+    text = ang % 90 === 0 ? `${ang}° ${ang % 180 === 0 ? 'horizontal' : 'vertical'}` : `${ang}°`;
+    [x, y] = toScreen(e.bx, e.by);
+    x += 18 * d;
+    y -= 22 * d;
+  } else {
+    text = 'Círculo perfecto';
+    const [cx, cy] = toScreen(e.cx, e.cy);
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = '#2563eb';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3.5 * d, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    x = cx;
+    y = cy - m[3] * e.r - 20 * d;
+  }
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.font = `600 ${13 * d}px system-ui, sans-serif`;
+  const w = ctx.measureText(text).width + 18 * d;
+  const hgt = 24 * d;
+  x = Math.max(4 * d, Math.min(viewer.overlay.width - w - 4 * d, x - (e.type === 'circle' ? w / 2 : 0)));
+  y = Math.max(hgt / 2 + 4 * d, Math.min(viewer.overlay.height - hgt / 2 - 4 * d, y));
+  ctx.fillStyle = 'rgba(37, 99, 235, 0.92)';
+  ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(x, y - hgt / 2, w, hgt, hgt / 2);
+  else ctx.rect(x, y - hgt / 2, w, hgt);
+  ctx.fill();
+  ctx.fillStyle = '#ffffff';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, x + 9 * d, y + 0.5 * d);
+  ctx.restore();
 }
 
 /** Añade puntos intermedios (cada `step`) a una polilínea plana [x, y, p, ...]. */

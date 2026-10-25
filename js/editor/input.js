@@ -2,18 +2,16 @@
 //
 // - Lápiz: siempre dibuja con la herramienta activa (el extremo borrador o el botón lateral borran).
 // - Dedo: desplaza con inercia (o dibuja si el modo dedo lo permite). Dos dedos: zoom y desplazamiento.
-// - Rechazo de palma: mientras el lápiz está apoyado (y 500 ms después) se ignoran los dedos.
+// - Rechazo de palma: mientras el lápiz está apoyado (y un rato después, ajustable) se ignoran los dedos.
 // - Toque con dos dedos = deshacer; con tres dedos = rehacer.
 // - Toque con un dedo (cuando el dedo desplaza) o Ctrl+clic: sigue los enlaces del PDF.
 // - Mantener pulsado sin moverse: menú circular de herramientas y colores (ver radial.js).
 // - Al dibujar se usa `pointerrawupdate` si existe: los puntos llegan en cuanto el lápiz los
 //   envía, sin esperar al siguiente fotograma (trazo más preciso y con menos retraso).
 
-import { settings, fingerDraws } from '../core/settings.js';
+import { settings, fingerDraws, timing } from '../core/settings.js';
 import { pdfQueue } from '../render/pdf.js';
 
-const PALM_GUARD_MS = 500;
-const TAP_MAX_MS = 280;
 const TAP_MAX_MOVE = 14;
 
 export class InputController {
@@ -90,7 +88,7 @@ export class InputController {
       }
       // El lápiz manda: se cancela cualquier gesto de dedos en curso.
       this.cancelTouches();
-      this.penUntil = Date.now() + PALM_GUARD_MS;
+      this.penUntil = Date.now() + timing('palmGuardMs');
       if (this.drawPointer) return;
       const eraserEnd = e.button === 5 || (e.buttons & 32) === 32;
       const barrel = !eraserEnd && (e.buttons & 2) === 2;
@@ -263,7 +261,7 @@ export class InputController {
     const m = this.multiTap;
     if (!m || this.touches.size > 0) return;
     this.multiTap = null;
-    if (m.moved || performance.now() - m.t0 > TAP_MAX_MS * 1.6) return;
+    if (m.moved || performance.now() - m.t0 > timing('gestureTapMs') * 1.6) return;
     if (m.maxCount === 1) {
       if (this.editor.radial.tap(m.x, m.y)) return;
       this.editor.onTap(this.viewer, m.x, m.y, { mouse: false });
@@ -343,7 +341,7 @@ export class InputController {
       if (p) pts.push(p);
     }
     const predicted = withPrediction ? this.predictedFrom(e, d) : null;
-    if (d.pen) this.penUntil = Date.now() + PALM_GUARD_MS;
+    if (d.pen) this.penUntil = Date.now() + timing('palmGuardMs');
     d.tool.move(pts, predicted, e);
   }
 
@@ -372,7 +370,7 @@ export class InputController {
     try {
       d.tool.end(last);
     } finally {
-      if (d.pen) this.penUntil = Date.now() + PALM_GUARD_MS;
+      if (d.pen) this.penUntil = Date.now() + timing('palmGuardMs');
       pdfQueue.resume();
       this.viewer.setDrawing(false);
     }

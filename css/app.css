@@ -636,6 +636,8 @@ body.lib-dragging, body.lib-dragging * { cursor: grabbing !important; }
 }
 .segmented button .svg-icon { width: 20px; height: 20px; }
 .segmented button.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow-1); }
+.dash-seg button { justify-content: center; min-width: 0; }
+.dash-seg svg { width: 100%; max-width: 48px; height: 10px; }
 .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
 .swatch {
   width: 100%; aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(15, 23, 42, 0.12); cursor: pointer; position: relative; padding: 0;

@@ -14,6 +14,32 @@ export const BRUSHES = {
 
 export const HIGHLIGHTER_ALPHA = BRUSHES.highlighter.alpha;
 
+// Tipos de línea (`ds` en el trazo). El subrayador siempre es continuo.
+export const DASHES = [
+  { id: 'solid', name: 'Continuo' },
+  { id: 'dash', name: 'Guiones' },
+  { id: 'dot', name: 'Puntos' },
+  { id: 'dashdot', name: 'Guion y punto' }
+];
+
+/** Patrón de discontinuidad para un grosor de línea; null = continuo. Los puntos son guiones de largo 0 con punta redonda. */
+export function dashPattern(ds, width) {
+  const W = Math.max(1, width);
+  if (ds === 'dash') return [W * 3.5, W * 2.5];
+  if (ds === 'dot') return [0, W * 2.2];
+  if (ds === 'dashdot') return [W * 3.5, W * 2.2, 0, W * 2.2];
+  return null;
+}
+
+/** ¿El trazo a mano se dibuja discontinuo (línea central de grosor fijo en vez de contorno)? */
+const isDashedInk = s => !!dashPattern(s.ds, 1) && s.t !== 'highlighter' && s.t !== 'shape' && !s.lg;
+
+/** Grosor visual de una pluma con presión media (perfect-freehand dibuja ~√2 × tamaño). */
+export function visualWidth(t, w) {
+  const b = BRUSHES[t] || BRUSHES.pen;
+  return Math.max(0.5, w * b.sizeMul * Math.SQRT2 * (b.simulate ? 0.8 : 1));
+}
+
 // Sensibilidad a la presión (Ajustes): cuánto cambia el grosor según lo fuerte que se apriete.
 const PRESSURE_THINNING = { off: 0, soft: 0.3, normal: 0.5, strong: 0.75 };
 
@@ -219,7 +245,7 @@ export function strokeSpec(s) {
       ops.push({ kind: 'fill', path2d: shapePath(s), svg: () => shapeSvg(s), color: s.fc || s.c, alpha: fillAlpha * (s.a ?? 1) });
     }
     if (!s.ns) {
-      ops.push({ kind: 'stroke', path2d: shapePath(s), svg: () => shapeSvg(s), color: s.c, alpha: s.a ?? 1, width: s.w });
+      ops.push({ kind: 'stroke', path2d: shapePath(s), svg: () => shapeSvg(s), color: s.c, alpha: s.a ?? 1, width: s.w, dash: dashPattern(s.ds, s.w) });
       if (s.sh === 'arrow') {
         const head = arrowHead(s);
         if (head) {
@@ -252,6 +278,10 @@ export function strokeSpec(s) {
     } else {
       ops.push({ kind: 'stroke', path2d: legacyPolyline(s.pts), svg: () => legacySvg(s.pts), color: s.c, alpha, width });
     }
+  } else if (isDashedInk(s)) {
+    const b = BRUSHES[s.t] || BRUSHES.pen;
+    const width = visualWidth(s.t, s.w);
+    ops.push({ kind: 'stroke', path2d: legacyPolyline(s.pts), svg: () => legacySvg(s.pts), color: s.c, alpha: b.alpha * (s.a ?? 1), width, dash: dashPattern(s.ds, width) });
   } else {
     const b = BRUSHES[s.t] || BRUSHES.pen;
     let outline = null;
@@ -283,7 +313,9 @@ export function drawStroke(ctx, s) {
       ctx.lineWidth = op.width;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
+      if (op.dash) ctx.setLineDash(op.dash);
       ctx.stroke(op.path2d);
+      if (op.dash) ctx.setLineDash([]);
     }
   }
   ctx.globalAlpha = 1;
@@ -311,7 +343,7 @@ export function drawStrokes(ctx, strokes, clip = null, skip = null) {
 
 /** Dibuja un trazo "en vivo" (aún sin terminar) a partir de puntos planos; no usa caché. */
 export function drawLiveStroke(ctx, s) {
-  if (s.t === 'shape') {
+  if (s.t === 'shape' || isDashedInk(s)) {
     drawStroke(ctx, s);
     specCache.delete(s);
     return;

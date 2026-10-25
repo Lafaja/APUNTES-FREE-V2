@@ -50,6 +50,7 @@ export class PenTool {
     this.live = { t: preset.t, c: preset.c, w: preset.w, np: ctx.np ? 1 : 0, pts: [ctx.x, ctx.y, ctx.p] };
     const th = thinningFor(preset.t, settings.get('pressure'));
     if (th !== undefined) this.live.th = th;
+    if (preset.ds && preset.ds !== 'solid' && preset.t !== 'highlighter') this.live.ds = preset.ds;
     this.predicted = null;
     this.startTime = performance.now();
     this.snapped = null;
@@ -93,6 +94,7 @@ export class PenTool {
     const extra = { sh: shape.type };
     if (shape.closed) extra.closed = 1;
     if (b.alpha < 1) extra.a = b.alpha;
+    if (live.ds) extra.ds = live.ds;
     // perfect-freehand dibuja un grosor de ~√2 × tamaño con presión media: la forma usa el mismo grosor visual.
     const w = Math.max(0.5, live.w * b.sizeMul * Math.SQRT2 * (b.simulate ? 0.8 : 1));
     return makeStroke({ t: 'shape', c: live.c, w, pts: flat, np: true, extra });
@@ -197,7 +199,10 @@ export class PenTool {
     }
     let pts = live.pts;
     if (pts.length === 3) pts = [pts[0], pts[1], pts[2], pts[0] + 0.05, pts[1] + 0.05, pts[2]];
-    const stroke = makeStroke({ t: live.t, c: live.c, w: live.w, pts, np: !!live.np, extra: live.th !== undefined ? { th: live.th } : null });
+    const extra = {};
+    if (live.th !== undefined) extra.th = live.th;
+    if (live.ds) extra.ds = live.ds;
+    const stroke = makeStroke({ t: live.t, c: live.c, w: live.w, pts, np: !!live.np, extra });
     const session = viewer.session;
     session.addStrokes(pageId, [stroke], { origin: viewer, label: 'Trazo' });
     this.editor.afterStroke(viewer, pageIndex, strokeBBox(stroke));
@@ -502,6 +507,7 @@ export class ShapeTool {
       extra.fill = cfg.fill;
       extra.fc = cfg.color;
     }
+    if (cfg.ds && cfg.ds !== 'solid') extra.ds = cfg.ds;
     return makeStroke({ t: 'shape', c: cfg.color, w: cfg.w, pts, np: true, extra });
   }
 

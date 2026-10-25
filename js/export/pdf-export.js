@@ -178,6 +178,7 @@ export async function exportPdf(session, pageIndices, { withBackground = true, o
               borderWidth: op.width,
               borderOpacity: op.alpha,
               borderLineCap: LineCapStyle.Round,
+              borderDashArray: op.dash || undefined,
               borderLineJoin: LineJoinStyle ? LineJoinStyle.Round : undefined
             });
           }

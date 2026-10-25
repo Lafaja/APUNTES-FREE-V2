@@ -6,6 +6,7 @@ import { uid } from './util.js';
 import { DEFAULT_PAPER } from '../model/paper.js';
 
 const KEY = 'ts2.settings';
+const DASH_IDS = ['solid', 'dash', 'dot', 'dashdot']; // tipos de línea (ver DASHES en render/ink.js)
 
 export const INK_COLORS = [
   '#0f172a', '#475569', '#94a3b8', '#ffffff',
@@ -49,7 +50,7 @@ const DEFAULTS = {
   activePresetId: 'pen-black',
   favColors: [],
   eraser: { mode: 'stroke', size: 18 },
-  shape: { type: 'rect', fill: 'none', w: 2.5, color: '#0f172a' },
+  shape: { type: 'rect', fill: 'none', w: 2.5, color: '#0f172a', ds: 'solid' },
   defaultPaper: { ...DEFAULT_PAPER },
   sort: 'updated',
   autoAddPages: true,
@@ -122,7 +123,8 @@ class Settings extends Emitter {
         id: p.id || uid('pr'),
         t: ['pen', 'fountain', 'brush', 'pencil', 'highlighter'].includes(p.t) ? p.t : 'pen',
         c: /^#[0-9a-f]{6}$/i.test(p.c || '') ? p.c : '#0f172a',
-        w: Number.isFinite(p.w) && p.w > 0 ? Math.min(60, p.w) : 2.2
+        w: Number.isFinite(p.w) && p.w > 0 ? Math.min(60, p.w) : 2.2,
+        ...(DASH_IDS.includes(p.ds) && p.ds !== 'solid' ? { ds: p.ds } : {})
       }));
     if (!d.presets.some(p => p.id === d.activePresetId)) d.activePresetId = d.presets[0].id;
     if (!Array.isArray(d.favColors)) d.favColors = [];
@@ -142,6 +144,7 @@ class Settings extends Emitter {
     d.splitRatio = Number.isFinite(d.splitRatio) ? Math.min(0.8, Math.max(0.2, d.splitRatio)) : 0.5;
     d.eraser = { mode: d.eraser?.mode === 'precision' ? 'precision' : 'stroke', size: Number.isFinite(d.eraser?.size) ? d.eraser.size : 18 };
     d.shape = { ...DEFAULTS.shape, ...(d.shape || {}) };
+    if (!DASH_IDS.includes(d.shape.ds)) d.shape.ds = 'solid';
     d.defaultPaper = { ...DEFAULT_PAPER, ...(d.defaultPaper || {}) };
   }
 

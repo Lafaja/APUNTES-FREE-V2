@@ -5,7 +5,7 @@ import { uid } from '../core/util.js';
 import { h, iconEl, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { openPopover, closePopover } from '../ui/popover.js';
-import { BRUSHES, drawLiveStroke } from '../render/ink.js';
+import { BRUSHES, DASHES, dashPattern, drawLiveStroke } from '../render/ink.js';
 import { SHAPES } from './tools.js';
 import { createColorPicker } from '../ui/colorpicker.js';
 
@@ -102,6 +102,23 @@ export class Toolbar {
   // Plumas
   // ------------------------------------------------------------------
 
+  /** Selector de tipo de línea (continuo, guiones, puntos, guion y punto) con una muestra de cada uno. */
+  dashSeg(value, onPick) {
+    const seg = h('div.segmented.dash-seg');
+    for (const d of DASHES) {
+      const b = h('button', { type: 'button', title: d.name, 'aria-label': d.name });
+      const pat = dashPattern(d.id, 3);
+      b.innerHTML = `<svg viewBox="0 0 48 10" width="48" height="10" aria-hidden="true"><path d="M4 5H44" stroke="currentColor" stroke-width="3" stroke-linecap="round"${pat ? ` stroke-dasharray="${pat.join(' ')}"` : ''}/></svg>`;
+      if ((value || 'solid') === d.id) b.classList.add('active');
+      b.addEventListener('click', () => {
+        seg.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+        onPick(d.id);
+      });
+      seg.appendChild(b);
+    }
+    return seg;
+  }
+
   addPreset(anchor) {
     const presets = settings.get('presets').slice();
     const cur = presets.find(p => p.id === settings.get('activePresetId')) || presets[0];
@@ -142,7 +159,7 @@ export class Toolbar {
         const y = hh / 2 + Math.sin(t * Math.PI * 2) * (hh * 0.22);
         pts.push(x, y, 0.25 + 0.6 * Math.sin(t * Math.PI));
       }
-      drawLiveStroke(ctx, { t: p.t, c: p.c, w: p.w, pts, np: 0 });
+      drawLiveStroke(ctx, { t: p.t, c: p.c, w: p.w, pts, np: 0, ds: p.ds });
     };
 
     // Tipo de pluma
@@ -162,6 +179,7 @@ export class Toolbar {
         typeSeg.querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
         renderColors();
         renderSizes();
+        dashSection.hidden = isHl;
         drawPreview();
       });
       typeSeg.appendChild(b);
@@ -259,6 +277,13 @@ export class Toolbar {
     renderColors();
     renderSizes();
 
+    // Tipo de línea (el subrayador siempre es continuo)
+    const dashSection = h('div.panel-section', h('div.panel-label', 'Línea'), this.dashSeg(p.ds, ds => {
+      this.updatePreset(id, { ds: ds === 'solid' ? undefined : ds });
+      drawPreview();
+    }));
+    dashSection.hidden = p.t === 'highlighter';
+
     const presets = settings.get('presets');
     const idx = presets.findIndex(x => x.id === id);
     const moveBtn = dir => {
@@ -290,6 +315,7 @@ export class Toolbar {
       h('div.panel-section', h('div.panel-label', 'Tipo'), typeSeg),
       h('div.panel-section', h('div.panel-label', 'Color'), colorsWrap),
       h('div.panel-section', h('div.panel-label', 'Grosor'), sizeWrap),
+      dashSection,
       h('div.panel-actions', moveBtn(-1), moveBtn(1), del)
     );
     openPopover(anchor, panel, { onClose: () => this.render() });
@@ -408,7 +434,8 @@ export class Toolbar {
       h('div.panel-section', h('div.panel-label', 'Forma'), typeSeg),
       h('div.panel-section', h('div.panel-label', 'Relleno'), fillSeg),
       h('div.panel-section', h('div.panel-label', 'Color'), grid),
-      h('div.panel-section', h('div.panel-label', 'Grosor de línea'), h('div.size-row', slider, val))
+      h('div.panel-section', h('div.panel-label', 'Grosor de línea'), h('div.size-row', slider, val)),
+      h('div.panel-section', h('div.panel-label', 'Línea'), this.dashSeg(cfg().ds, ds => settings.update('shape', { ds })))
     );
     openPopover(anchor, panel);
   }

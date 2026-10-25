@@ -66,6 +66,8 @@ export function strokeRadius(s) {
     if (s.t === 'fountain') return (s.w * 1.25) / 2;
     return s.w / 2;
   }
+  // Discontinuo a mano: línea de grosor fijo, hasta ~1,3 × w con el pincel.
+  if (s.ds && s.ds !== 'solid' && s.t !== 'shape' && s.t !== 'highlighter') return s.w * 1.35;
   switch (s.t) {
     case 'fountain': return s.w * 0.9;
     case 'brush': return s.w * 1.1;

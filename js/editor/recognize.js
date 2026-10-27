@@ -1,5 +1,5 @@
 // Reconocimiento de formas dibujadas a mano: al terminar un trazo manteniendo el lápiz quieto,
-// la línea, círculo, elipse, triángulo, rectángulo o polígono se sustituye por su versión perfecta.
+// la línea, flecha, círculo, elipse, triángulo, rectángulo o polígono se sustituye por su versión perfecta.
 //
 // Todo trabaja en coordenadas de página. recognizeShape() devuelve
 // { type, pts: [x0, y0, x1, y1, ...], closed } o null si el trazo no parece ninguna forma.
@@ -335,6 +335,68 @@ function lineFrom(a, b) {
   return { type: 'line', pts: [a.x, a.y, x2, y2], closed: false };
 }
 
+// ---------------- Flechas ----------------
+// De un solo trazo: palo hasta la punta y luego una o dos barbas hacia atrás (volviendo o no a la
+// punta entre ellas). También dibujada al revés (barbas primero y el palo al final).
+
+/** Flecha con el palo empezando en P[0]; null si no lo parece. */
+function arrowFrom(P) {
+  const T = P[0];
+  // La punta es el punto más alejado del inicio (las barbas vuelven hacia atrás); si el trazo
+  // pasa por ella dos veces, cuenta la primera.
+  let far = 0;
+  for (const p of P) far = Math.max(far, Math.hypot(p.x - T.x, p.y - T.y));
+  const h = P.findIndex(p => Math.hypot(p.x - T.x, p.y - T.y) >= far - Math.max(2, 0.03 * far));
+  if (!(far > 0) || h < 4 || h > P.length - 4) return null;
+  const d0 = Math.hypot(P[h].x - T.x, P[h].y - T.y);
+  const ux = (P[h].x - T.x) / d0, uy = (P[h].y - T.y) / d0;
+  const S = far;
+  const H = { x: T.x + ux * S, y: T.y + uy * S };
+  // Palo recto.
+  const shaft = P.slice(0, h + 1);
+  if (pathLength(shaft) > 1.2 * S) return null;
+  for (const p of shaft) if (distToSeg(p, T, H) > Math.max(3, 0.07 * S)) return null;
+  // Cabeza: cerca de la punta, por detrás de ella y sin garabatos.
+  const head = P.slice(h);
+  if (pathLength(head) > 1.6 * S) return null;
+  let bp = null, bm = null, dp = 0, dm = 0;
+  for (const q of head) {
+    const du = (q.x - H.x) * ux + (q.y - H.y) * uy;
+    const dv = -(q.x - H.x) * uy + (q.y - H.y) * ux;
+    const d = Math.hypot(q.x - H.x, q.y - H.y);
+    if (d > 0.6 * S || du > 0.08 * S) return null;
+    if (dv > 0 && d > dp) { dp = d; bp = q; }
+    if (dv < 0 && d > dm) { dm = d; bm = q; }
+  }
+  // Barba válida: ni diminuta ni larga, y abierta entre 12° y 70° respecto al palo.
+  const barb = b => {
+    if (!b) return null;
+    const len = Math.hypot(b.x - H.x, b.y - H.y);
+    if (len < Math.max(2, 0.08 * S)) return null;
+    const ang = cornerAngle(T, H, b);
+    return ang >= 12 && ang <= 70 ? { len, ang } : null;
+  };
+  const barbs = [barb(bp), barb(bm)].filter(Boolean);
+  if (!barbs.length) return null;
+  // Todos los puntos de la cabeza sobre las barbas (o la línea entre ellas, si se cerró en triángulo).
+  const segs = [[H, bp], [H, bm], [bp, bm]].filter(([a, b]) => a && b);
+  const tol = Math.max(2, 0.06 * S);
+  for (const q of head) if (Math.min(...segs.map(([a, b]) => distToSeg(q, a, b))) > tol) return null;
+  // Punta simétrica con el largo y la apertura medios de lo dibujado; palo exacto si está casi recto.
+  const tip = lineFrom(T, H).pts;
+  const hx = tip[2], hy = tip[3];
+  const L = Math.hypot(hx - T.x, hy - T.y);
+  const bx = (T.x - hx) / L, by = (T.y - hy) / L;
+  const len = barbs.reduce((s, b) => s + b.len, 0) / barbs.length;
+  const ang = Math.max(20, Math.min(50, barbs.reduce((s, b) => s + b.ang, 0) / barbs.length)) * DEG;
+  const c = Math.cos(ang), s = Math.sin(ang);
+  return {
+    type: 'arrow-open',
+    pts: [T.x, T.y, hx, hy, hx + len * (bx * c - by * s), hy + len * (bx * s + by * c), hx, hy, hx + len * (bx * c + by * s), hy + len * (-bx * s + by * c)],
+    closed: false
+  };
+}
+
 // ---------------- Paréntesis, corchetes y llaves ----------------
 // Se comparan con plantillas en un sistema local: u a lo largo de la cuerda (del principio al final
 // del trazo, de 0 a L) y v hacia el lado al que se abomba (0 en los extremos, W en lo más saliente).
@@ -490,6 +552,9 @@ export function recognizeShape(flat, { minSize = 20 } = {}) {
     let dev = 0;
     for (const p of R) dev = Math.max(dev, distToSeg(p, first, last));
     if (gap > 0.8 * diag && dev < Math.max(3, 0.07 * gap) && L < 1.25 * gap) return lineFrom(first, last);
+    // Flecha (con el palo al principio o al final del trazo).
+    const arrow = arrowFrom(R) || arrowFrom(R.slice().reverse());
+    if (arrow) return arrow;
     // Polilínea de 2 o 3 tramos rectos (p. ej. una "L" o una "V").
     let poly = null;
     const V = cleanVertices(simplify(R, Math.max(1.5, 0.05 * diag)), diag, false);

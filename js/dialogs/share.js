@@ -1,4 +1,4 @@
-// Diálogo «Compartir apunte (.tstudio)»: prepara el archivo y luego deja compartirlo o guardarlo
+// Diálogo «Compartir apunte (.apunteo)»: prepara el archivo y luego deja compartirlo o guardarlo
 // (compartir necesita un toque nuevo del usuario, por eso va en un segundo paso).
 
 import { buildShareFile, SHARE_MIME } from '../core/share.js';
@@ -46,7 +46,7 @@ export async function openShareDialog(docIds) {
     variant: shareable ? 'btn-outline' : 'btn-primary',
     value: true,
     onClick: async () => {
-      const r = await saveBlob(res.blob, res.name, { description: 'Apunte de Tablet Studio', accept: { [SHARE_MIME]: ['.tstudio'] } });
+      const r = await saveBlob(res.blob, res.name, { description: 'Apunte de Tablet Studio', accept: { [SHARE_MIME]: ['.apunteo'] } });
       if (r === 'cancelled') return false;
       toast(r === 'saved' ? 'Archivo guardado' : 'Descarga iniciada', { type: 'success' });
       return true;

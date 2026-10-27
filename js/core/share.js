@@ -1,4 +1,4 @@
-// Apuntes compartidos entre tablets: archivo .tstudio (por dentro, el mismo .zip que las copias de
+// Apuntes compartidos entre tablets: archivo .apunteo (antes .tstudio; por dentro, el mismo .zip que las copias de
 // seguridad, solo con los documentos elegidos y sus PDF/imágenes). Quien lo recibe lo importa como una
 // copia nueva y suya, editable como si lo hubiera creado él; nunca sustituye nada que ya tenga.
 
@@ -8,14 +8,14 @@ import { ZipWriter, blobSink } from './zip.js';
 import { sanitizeFileName } from './util.js';
 import { flushAllSessions } from '../model/session.js';
 
-export const SHARE_EXT = '.tstudio';
-export const SHARE_MIME = 'application/x-tstudio';
+export const SHARE_EXT = '.apunteo';
+export const SHARE_MIME = 'application/x-apunteo';
 
 export function isShareFileName(name) {
-  return /\.tstudio$/i.test(name || '');
+  return /\.(apunteo|tstudio)$/i.test(name || ''); // .tstudio: archivos de antes de Apunteo
 }
 
-/** Crea el archivo .tstudio con esos documentos. Devuelve { blob, name, docs }. */
+/** Crea el archivo .apunteo con esos documentos. Devuelve { blob, name, docs }. */
 export async function buildShareFile(docIds, { onProgress = null } = {}) {
   await flushAllSessions().catch(() => false);
   let name = `Apuntes compartidos${SHARE_EXT}`;
@@ -39,7 +39,7 @@ export async function looksLikeShareFile(file) {
   }
 }
 
-/** Importa un .tstudio dentro de la carpeta `parentId` (null = raíz). Devuelve el informe de restoreBackup. */
+/** Importa un .apunteo (o .tstudio) dentro de la carpeta `parentId` (null = raíz). Devuelve el informe de restoreBackup. */
 export async function importShareFile(file, parentId = null) {
   return restoreBackup(file, { mode: 'copy', into: parentId });
 }

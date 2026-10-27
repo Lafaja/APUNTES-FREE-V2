@@ -1019,7 +1019,7 @@ export class Editor {
     const ro = this.isReadOnly();
     openMenu(anchor, [
       { title: 'Documento' },
-      { label: 'Compartir para editar (.tstudio)…', icon: 'send', onClick: () => this.app.shareDocs([pane.session.id]) },
+      { label: 'Compartir para editar (.apunteo)…', icon: 'send', onClick: () => this.app.shareDocs([pane.session.id]) },
       { label: 'Exportar PDF o imagen…', icon: 'share', onClick: () => this.app.openExport(pane.session, pane.viewer.currentPage) },
       { label: 'Historial de versiones…', icon: 'history', onClick: () => this.app.openVersions(pane.session) },
       { label: 'Renombrar…', icon: 'edit', disabled: ro, onClick: () => this.renameDoc() },

@@ -16,10 +16,10 @@
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {
-      "files": [{ "name": "file", "accept": [".tstudio", "application/x-tstudio", "application/octet-stream", "application/zip", ".pdf", "application/pdf"] }]
+      "files": [{ "name": "file", "accept": [".apunteo", "application/x-apunteo", ".tstudio", "application/x-tstudio", "application/octet-stream", "application/zip", ".pdf", "application/pdf"] }]
     }
   },
-  "file_handlers": [{ "action": "./", "accept": { "application/x-tstudio": [".tstudio"] } }],
+  "file_handlers": [{ "action": "./", "accept": { "application/x-apunteo": [".apunteo"], "application/x-tstudio": [".tstudio"] } }],
   "icons": [
     { "src": "icons/logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },

@@ -473,13 +473,13 @@ class App {
     input.click();
   }
 
-  /** Compartir uno o varios documentos como archivo .tstudio. */
+  /** Compartir uno o varios documentos como archivo .apunteo. */
   async shareDocs(ids) {
     const { openShareDialog } = await import('./dialogs/share.js');
     await openShareDialog(ids);
   }
 
-  /** «Importar apunte compartido»: sin filtro de tipo, porque Android no conoce la extensión .tstudio. */
+  /** «Importar apunte compartido»: sin filtro de tipo, porque Android no conoce la extensión .apunteo. */
   importShared(parentId) {
     const input = h('input', { type: 'file', multiple: true, style: { display: 'none' } });
     document.body.appendChild(input);
@@ -491,7 +491,7 @@ class App {
     input.click();
   }
 
-  /** Importa archivos .tstudio (como copias propias) o PDF dentro de una carpeta y abre el resultado. */
+  /** Importa archivos .apunteo/.tstudio (como copias propias) o PDF dentro de una carpeta y abre el resultado. */
   async importFiles(files, parentId = null) {
     const { importShareFile, looksLikeShareFile } = await import('./core/share.js');
     const opened = [];
@@ -505,7 +505,7 @@ class App {
           continue;
         }
         if (!(await looksLikeShareFile(f))) {
-          toast(`«${f.name}» no es un apunte de Tablet Studio (.tstudio) ni un PDF`, { type: 'error', duration: 7000 });
+          toast(`«${f.name}» no es un apunte de Tablet Studio (.apunteo) ni un PDF`, { type: 'error', duration: 7000 });
           continue;
         }
         const stop = toast(`Importando «${f.name}»…`, { duration: 0 });
@@ -528,7 +528,7 @@ class App {
     if (opened.length === 1) await this.openDocument(opened[0]);
   }
 
-  /** Archivos que llegan desde fuera: «Compartir → Tablet Studio» (Android) o doble clic en un .tstudio (PC). */
+  /** Archivos que llegan desde fuera: «Compartir → Tablet Studio» (Android) o doble clic en un .apunteo/.tstudio (PC). */
   async receiveExternalFiles() {
     if ('launchQueue' in window) {
       window.launchQueue.setConsumer(async params => {

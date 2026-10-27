@@ -129,7 +129,7 @@ export async function writeBackup(writer, { docIds = null, onProgress = null, sh
   };
   const lines = share
     ? ['APUNTE COMPARTIDO DE TABLET STUDIO', `Fecha: ${new Date().toLocaleString('es-ES')}`, '',
-      'Para abrirlo: en la app, botón «+» → «Importar apunte compartido (.tstudio)».', '',
+      'Para abrirlo: en la app, botón «+» → «Importar apunte compartido (.apunteo)».', '',
       'DOCUMENTOS:']
     : ['COPIA DE SEGURIDAD DE TABLET STUDIO', `Fecha: ${new Date().toLocaleString('es-ES')}`, '',
       'Para restaurarla: abre la app → Ajustes → Copias de seguridad → Restaurar copia.', '',

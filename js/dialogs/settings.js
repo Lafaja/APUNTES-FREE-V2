@@ -84,7 +84,7 @@ export async function openSettingsDialog(app, section) {
     h('div', { style: { paddingBottom: '12px' } }, segmented([
       { id: 'off', label: 'Desactivada' }, { id: 'soft', label: 'Suave' }, { id: 'normal', label: 'Normal' }, { id: 'strong', label: 'Fuerte' }
     ], settings.get('pressure'), v => settings.set('pressure', v))),
-    row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto un momento (se ajusta en «Tiempos»): la línea, círculo, rectángulo o triángulo se vuelve perfecto. Sin levantarlo, en una línea cambias el ángulo (el primer punto queda fijo) y en un círculo el tamaño.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
+    row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto un momento (se ajusta en «Tiempos»): la línea, flecha, círculo, rectángulo o triángulo se vuelve perfecto. Sin levantarlo, en una línea cambias el ángulo (el primer punto queda fijo) y en un círculo el tamaño.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
     h('h3', { style: { marginTop: '18px' } }, 'Menú circular de herramientas'),
     row('Qué es', 'Un círculo con tus plumas, herramientas y colores. Elige arrastrando hasta una opción y soltando, o suelta y toca la opción. Puedes abrirlo de varias formas a la vez:', null),
     row('Mantener pulsado', 'Deja el lápiz o el dedo quieto sobre la página.', switchCtl(settings.get('radialMenu'), v => settings.set('radialMenu', v))),

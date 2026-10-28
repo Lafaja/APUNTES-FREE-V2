@@ -424,7 +424,7 @@ class App {
       }));
     } catch (err) {
       console.error(err);
-      toast(`No se pudo crear el apunte: ${err && err.message ? err.message : err}`, { type: 'error', duration: 0, action: { label: 'Cerrar', fn: () => {} } });
+      toast(`No se pudo crear el apunte: ${err && err.message ? err.message : err}`, { type: 'error', duration: 0, action: { label: 'Recargar', fn: () => this.safeReload() } });
       return;
     }
     this.broadcast();

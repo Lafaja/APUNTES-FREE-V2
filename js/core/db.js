@@ -117,9 +117,36 @@ export function openDatabase({ timeoutMs = 15000 } = {}) {
   });
 }
 
+let opening = null;
+
 async function ensureDb() {
   if (db) return db;
-  return openDatabase();
+  // Una sola apertura a la vez aunque lleguen varias operaciones juntas.
+  if (!opening) opening = openDatabase().finally(() => { opening = null; });
+  return opening;
+}
+
+/**
+ * Descarta la conexión actual (p. ej. se quedó colgada tras tener la app en segundo plano).
+ * La siguiente operación abre una nueva; las transacciones en curso de la vieja terminan solas.
+ */
+export function resetConnection() {
+  const d = db;
+  db = null;
+  if (d) {
+    d.onclose = null;
+    d.onversionchange = null;
+    try { d.close(); } catch {}
+  }
+}
+
+// Una transacción normal tarda milisegundos. Si no termina en este tiempo, la conexión está colgada.
+const STALL_MS = 20000;
+// Las que mueven binarios (PDF, imágenes) pueden tardar mucho en una tablet: sin vigilante.
+const HEAVY_STORES = [S.blobs];
+
+function isStall(err) {
+  return !!err && err.code === 'STALLED';
 }
 
 /**
@@ -127,8 +154,28 @@ async function ensureDb() {
  * (sin await dentro) y puede devolver un valor o una función que se evalúa al confirmar.
  * `fail(err)` cancela la transacción completa y hace que la promesa se rechace con `err`.
  */
-export async function run(storeNames, mode, body, { durability } = {}) {
-  const d = await ensureDb();
+export async function run(storeNames, mode, body, opts = {}) {
+  try {
+    return await runOnce(storeNames, mode, body, opts, await ensureDb());
+  } catch (err) {
+    // Conexión colgada o cerrada por el navegador: se abre una nueva y se reintenta una vez.
+    // (Reintentar es seguro: las escrituras son put/delete por clave, repetirlas da el mismo resultado.)
+    if (!isStall(err) && !(err && err.name === 'InvalidStateError')) throw err;
+    console.warn('Base de datos sin respuesta; se reabre la conexión', err);
+    resetConnection();
+    try {
+      return await runOnce(storeNames, mode, body, opts, await ensureDb());
+    } catch (err2) {
+      if (isStall(err2)) {
+        resetConnection();
+        throw Object.assign(new Error('El almacenamiento no responde. Cierra la app del todo (también de recientes) y vuelve a abrirla; tus apuntes siguen guardados.'), { code: 'STALLED', cause: err2 });
+      }
+      throw err2;
+    }
+  }
+}
+
+function runOnce(storeNames, mode, body, { durability, timeoutMs } = {}, d) {
   return new Promise((resolve, reject) => {
     let t;
     const names = Array.isArray(storeNames) ? storeNames : [storeNames];
@@ -141,9 +188,16 @@ export async function run(storeNames, mode, body, { durability } = {}) {
     let result;
     let failure = null;
     let settled = false;
+    const limit = timeoutMs ?? (names.some(n => HEAVY_STORES.includes(n)) ? 0 : STALL_MS);
+    const watchdog = limit > 0 ? setTimeout(() => {
+      if (settled) return;
+      try { t.abort(); } catch {}
+      finish(false, Object.assign(new Error('La base de datos no responde'), { code: 'STALLED' }));
+    }, limit) : null;
     const finish = (ok, value) => {
       if (settled) return;
       settled = true;
+      clearTimeout(watchdog);
       if (ok) resolve(value);
       else reject(value);
     };

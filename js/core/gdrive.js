@@ -201,6 +201,59 @@ async function upload(blob, name, folderId, onProgress) {
   throw new Error('La subida no terminó correctamente');
 }
 
+/** Carpeta de la app en Drive (la crea si falta) y la recuerda en la configuración. */
+async function appFolder() {
+  const cfg = await getDriveConfig();
+  const folderId = await ensureFolder(cfg);
+  if (folderId !== cfg.folderId) await setDriveConfig({ folderId });
+  return folderId;
+}
+
+/** Cuenta de Google conectada ({ email, name }) o null si Google no la da. */
+export async function fetchAccount() {
+  try {
+    const r = await api('about', { query: { fields: 'user(emailAddress,displayName)' } });
+    const u = (await r.json()).user || {};
+    return { email: u.emailAddress || '', name: u.displayName || '' };
+  } catch (err) {
+    if (err.code === 'AUTH') throw err;
+    return null;
+  }
+}
+
+async function findAppFile(name) {
+  const folderId = await appFolder();
+  const q = `'${folderId}' in parents and name='${name.replace(/'/g, "\\'")}' and trashed=false`;
+  const r = await api('files', { query: { q, orderBy: 'modifiedTime desc', fields: 'files(id,modifiedTime)', pageSize: '5', spaces: 'drive' } });
+  return { folderId, file: ((await r.json()).files || [])[0] || null };
+}
+
+/** Lee un JSON guardado por la app en su carpeta de Drive (null si aún no existe). */
+export async function readAppJson(name) {
+  const { file } = await findAppFile(name);
+  if (!file) return null;
+  const r = await api(`files/${encodeURIComponent(file.id)}`, { query: { alt: 'media' } });
+  try {
+    return JSON.parse(await r.text());
+  } catch {
+    return null; // archivo dañado: se reescribe con lo de este dispositivo
+  }
+}
+
+/** Guarda (crea o reemplaza) un JSON en la carpeta de la app en Drive. */
+export async function writeAppJson(name, obj) {
+  const { folderId, file } = await findAppFile(name);
+  const json = JSON.stringify(obj);
+  if (file) {
+    await api(`${UPLOAD}/${encodeURIComponent(file.id)}`, { method: 'PATCH', query: { uploadType: 'media' }, headers: { 'Content-Type': 'application/json; charset=UTF-8' }, body: json });
+    return;
+  }
+  const boundary = `apunteo${Date.now().toString(36)}`;
+  const meta = JSON.stringify({ name, parents: [folderId], mimeType: 'application/json' });
+  const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${json}\r\n--${boundary}--`;
+  await api(UPLOAD, { method: 'POST', query: { uploadType: 'multipart', fields: 'id' }, headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body });
+}
+
 /** Copias de la app en Drive, de la más reciente a la más antigua. */
 export async function listDriveBackups() {
   const cfg = await getDriveConfig();

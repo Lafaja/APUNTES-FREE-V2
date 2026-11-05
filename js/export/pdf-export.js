@@ -42,12 +42,23 @@ export async function exportPdf(session, pageIndices, { withBackground = true, o
     return v;
   };
 
-  const loadImg = async blobId => {
-    if (imgCache.has(blobId)) return imgCache.get(blobId);
+  const loadImg = async (blobId, crop) => {
+    const key = crop ? `${blobId}|${crop.x},${crop.y},${crop.w},${crop.h}` : blobId;
+    if (imgCache.has(key)) return imgCache.get(key);
     const b = await repo.getBlob(blobId);
     if (!b) throw new Error('Imagen no encontrada');
     let img;
-    if (/png/i.test(b.type)) img = await out.embedPng(b.data);
+    if (crop) {
+      // Imagen recortada: solo se incrusta la parte visible.
+      const bmp = await createImageBitmap(new Blob([b.data], { type: b.type }));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(crop.w));
+      c.height = Math.max(1, Math.round(crop.h));
+      c.getContext('2d').drawImage(bmp, crop.x, crop.y, crop.w, crop.h, 0, 0, c.width, c.height);
+      const jpg = /jpe?g/i.test(b.type);
+      const blob = await canvasToBlob(c, jpg ? 'image/jpeg' : 'image/png', 0.92);
+      img = jpg ? await out.embedJpg(await blob.arrayBuffer()) : await out.embedPng(await blob.arrayBuffer());
+    } else if (/png/i.test(b.type)) img = await out.embedPng(b.data);
     else if (/jpe?g/i.test(b.type)) img = await out.embedJpg(b.data);
     else {
       // Otros formatos (webp, gif): convertir a PNG vía canvas.
@@ -59,7 +70,7 @@ export async function exportPdf(session, pageIndices, { withBackground = true, o
       const png = await canvasToBlob(c, 'image/png');
       img = await out.embedPng(await png.arrayBuffer());
     }
-    imgCache.set(blobId, img);
+    imgCache.set(key, img);
     return img;
   };
 
@@ -141,7 +152,7 @@ export async function exportPdf(session, pageIndices, { withBackground = true, o
     // Imágenes insertadas
     for (const im of page.images || []) {
       try {
-        const img = await loadImg(im.blobId);
+        const img = await loadImg(im.blobId, im.crop);
         const w = im.w * K;
         const hh = im.h * K;
         const cx = (im.x + im.w / 2) * K;

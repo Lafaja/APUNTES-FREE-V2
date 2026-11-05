@@ -6,6 +6,9 @@ import { uid } from './util.js';
 import { DEFAULT_PAPER } from '../model/paper.js';
 
 const KEY = 'ts2.settings';
+const STAMPS_KEY = 'ts2.settings.stamps';
+// Ajustes propios de cada dispositivo: no se sincronizan con la cuenta.
+const LOCAL_ONLY = ['penDetected', 'openTabs', 'splitRatio', 'fingerMode', 'keepFullscreen'];
 const DASH_IDS = ['solid', 'dash', 'dot', 'dashdot']; // tipos de línea (ver DASHES en render/ink.js)
 
 export const INK_COLORS = [
@@ -155,8 +158,56 @@ class Settings extends Emitter {
   set(key, value) {
     this.data[key] = value;
     this._dirty.add(key);
+    this.stamp([key], Date.now());
     this.save();
     this.emit('change', { key, value });
+  }
+
+  /** Momento del último cambio de cada ajuste (compartido entre pestañas); decide qué gana al sincronizar. */
+  stamps() {
+    try {
+      const s = JSON.parse(localStorage.getItem(STAMPS_KEY) || '{}');
+      return s && typeof s === 'object' && !Array.isArray(s) ? s : {};
+    } catch {
+      return {};
+    }
+  }
+
+  stamp(keys, t) {
+    try {
+      const s = this.stamps();
+      for (const k of keys) s[k] = t;
+      localStorage.setItem(STAMPS_KEY, JSON.stringify(s));
+    } catch {}
+  }
+
+  /** Ajustes que viajan con la cuenta (sin los propios de cada dispositivo) y cuándo cambió cada uno. */
+  syncSnapshot() {
+    const all = this.stamps();
+    const values = {};
+    const stamps = {};
+    for (const k of Object.keys(DEFAULTS)) {
+      if (LOCAL_ONLY.includes(k)) continue;
+      values[k] = structuredCloneSafe(this.data[k]);
+      stamps[k] = Number(all[k]) || 0;
+    }
+    return { values, stamps };
+  }
+
+  /** Aplica ajustes llegados de la cuenta conservando su marca de tiempo (no cuentan como cambio local). */
+  adoptSynced(values, stamps) {
+    const keys = Object.keys(values).filter(k => k in DEFAULTS && !LOCAL_ONLY.includes(k));
+    if (!keys.length) return;
+    for (const k of keys) {
+      this.data[k] = structuredCloneSafe(values[k]);
+      this._dirty.add(k);
+    }
+    this.sanitize();
+    const s = this.stamps();
+    for (const k of keys) s[k] = Number(stamps[k]) || 0;
+    try { localStorage.setItem(STAMPS_KEY, JSON.stringify(s)); } catch {}
+    this.saveNow();
+    for (const k of keys) this.emit('change', { key: k, value: this.data[k], synced: true });
   }
 
   update(key, patch) {
@@ -225,6 +276,7 @@ class Settings extends Emitter {
     this.data = { ...this.data, ...obj };
     this.sanitize();
     for (const k of Object.keys(this.data)) this._dirty.add(k);
+    this.stamp(Object.keys(this.data), Date.now());
     this.saveNow();
     this.emit('change', { key: '*' });
   }

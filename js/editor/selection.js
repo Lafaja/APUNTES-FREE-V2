@@ -6,7 +6,8 @@ import {
   recolorStroke, cloneStroke, cloneImage, distSqPointSeg, strokeRadius
 } from '../model/stroke.js';
 import { drawStroke } from '../render/ink.js';
-import { getImage } from '../render/images.js';
+import { getImage, loadImage } from '../render/images.js';
+import { cropDialog, applyCrop } from '../dialogs/crop.js';
 import { h, iconEl } from '../ui/dom.js';
 import { openMenu, openPopover, closePopover } from '../ui/popover.js';
 import { INK_COLORS } from '../core/settings.js';
@@ -216,6 +217,7 @@ export class Selection {
         mk('Cortar', 'scissors', () => this.cut()),
         mk('Duplicar', 'layers', () => this.duplicate()),
         mk('Color', 'palette', b => this.pickColor(b)),
+        (this.cropBtn = mk('Recortar', 'crop', () => this.cropImage())),
         mk('', 'rotate', () => this.rotateBy(90)),
         mk('Eliminar', 'trash', () => this.remove()),
         mk('', 'more', b => this.moreMenu(b))
@@ -224,6 +226,7 @@ export class Selection {
     }
     if (this.menu.parentNode !== v.el) v.el.appendChild(this.menu);
     this.menu.hidden = false;
+    this.cropBtn.hidden = !(this.sel.imageIds.size === 1 && this.sel.strokeIds.size === 0);
     // El menú se ancla por su borde inferior (translate -100 %): se coloca encima de la selección
     // y, si no cabe, debajo; si tampoco, arriba del todo.
     const vh = v.el.clientHeight;
@@ -377,6 +380,30 @@ export class Selection {
       ops.push({ key, index: 0, removed: [...page[key]], added: next });
     }
     if (ops.length) session.commit(s.pageId, ops, { label: toFront ? 'Traer al frente' : 'Enviar al fondo', origin: s.viewer });
+    this.redraw();
+  }
+
+  /** Recorta la imagen seleccionada (no destructivo: se guarda el rectángulo visible). */
+  async cropImage() {
+    const { images } = this.items();
+    if (images.length !== 1) return;
+    const im = images[0];
+    let bmp;
+    try {
+      bmp = await loadImage(im.blobId);
+    } catch {
+      this.editor.toast('No se pudo cargar la imagen', 'error');
+      return;
+    }
+    this.hideMenu();
+    const crop = await cropDialog(bmp, im.crop || null);
+    if (crop === undefined || !this.sel) {
+      if (this.sel) this.redraw();
+      return;
+    }
+    const iw = bmp.width || bmp.naturalWidth;
+    const ih = bmp.height || bmp.naturalHeight;
+    this._commitReplace('Recortar', null, x => (x.id === im.id ? applyCrop(x, crop, iw, ih) : x));
     this.redraw();
   }
 

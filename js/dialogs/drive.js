@@ -7,8 +7,9 @@ import { toast } from '../ui/toast.js';
 import { formatBytes, timeAgo, formatDateTime } from '../core/util.js';
 import {
   CLIENT_ID_RE, getDriveConfig, setDriveConfig, connectDrive, disconnectDrive, hasValidToken,
-  backupToDrive, listDriveBackups, downloadDriveBackup, loadGoogleIdentity
+  backupToDrive, listDriveBackups, downloadDriveBackup, loadGoogleIdentity, fetchAccount
 } from '../core/gdrive.js';
+import { syncSettingsNow, syncIfPossible } from '../core/sync.js';
 
 function row(title, sub, control) {
   return h('div.settings-row', h('div.row-text', h('div.row-title', title), sub ? h('div.row-sub', sub) : null), control || null);
@@ -44,6 +45,7 @@ export async function runDriveBackupInteractive(app, knownCfg = null) {
     toast(err.message || 'No se pudo conectar con Google', { type: 'error', duration: 6000 });
     return false;
   }
+  syncIfPossible(); // ya hay sesión: de paso, ajustes y bolis al día
   const stop = toast('Preparando la copia para Google Drive…', { duration: 0 });
   try {
     const res = await backupToDrive({
@@ -118,7 +120,16 @@ export async function openDriveSetup(app, after) {
   } catch (e) {
     toast(e.message || 'No se pudo conectar con Google', { type: 'error', duration: 7000 });
   }
-  await setDriveConfig({ clientId: id, connected: connected || (!changed && cfg.connected), ...(changed ? { folderId: null } : {}) });
+  await setDriveConfig({ clientId: id, connected: connected || (!changed && cfg.connected), ...(changed ? { folderId: null, accountEmail: '', accountName: '' } : {}) });
+  if (connected) {
+    try {
+      const acc = await fetchAccount();
+      if (acc) await setDriveConfig({ accountEmail: acc.email, accountName: acc.name });
+      await syncSettingsNow();
+    } catch (e) {
+      console.warn('Sincronización inicial de ajustes fallida', e);
+    }
+  }
   if (after) after();
   return true;
 }
@@ -175,20 +186,72 @@ export async function openDriveRestore(app, after, knownCfg = null) {
   await restoreFile(app, file, after);
 }
 
-/** Apartado «Copia en Google Drive» de Ajustes. */
+/** Entra con Google (desde el toque del usuario), recuerda la cuenta y sincroniza los ajustes. */
+export async function signInAndSync(app, cfg) {
+  try {
+    await ensureConnected(cfg);
+  } catch (err) {
+    toast(err.message || 'No se pudo conectar con Google', { type: 'error', duration: 6000 });
+    return false;
+  }
+  try {
+    const acc = await fetchAccount();
+    if (acc) await setDriveConfig({ accountEmail: acc.email, accountName: acc.name });
+    const res = await syncSettingsNow();
+    toast(res.adopted ? 'Ajustes y bolis sincronizados con tu cuenta' : 'Ajustes guardados en tu cuenta', { type: 'success' });
+    return true;
+  } catch (err) {
+    console.error(err);
+    toast(`No se pudieron sincronizar los ajustes: ${err.message || err}`, { type: 'error', duration: 6000 });
+    return false;
+  }
+}
+
+/** Filas de la cuenta: con quién has entrado y la sincronización de ajustes y bolis. */
+function renderAccount(app, group, cfg, render) {
+  const who = cfg.accountEmail ? `${cfg.accountName ? `${cfg.accountName} · ` : ''}${cfg.accountEmail}` : 'Sin cuenta conectada';
+  if (!cfg.connected) {
+    const enter = h('button.btn.btn-sm.btn-primary', { type: 'button' }, iconEl('drive'), 'Entrar con Google');
+    enter.addEventListener('click', async () => {
+      enter.disabled = true;
+      await signInAndSync(app, cfg);
+      render();
+    });
+    group.appendChild(row('Cuenta', 'Entra para tener tus ajustes y bolis en todos tus dispositivos.', enter));
+    return;
+  }
+  const syncBtn = h('button.btn.btn-sm.btn-outline', { type: 'button' }, iconEl('cloudUp'), 'Sincronizar');
+  syncBtn.addEventListener('click', async () => {
+    syncBtn.disabled = true;
+    await signInAndSync(app, cfg);
+    render();
+  });
+  const state = cfg.settingsPending
+    ? 'Hay cambios sin subir: toca «Sincronizar».'
+    : cfg.settingsSyncedAt ? `Sincronizado ${timeAgo(cfg.settingsSyncedAt)}.` : 'Aún sin sincronizar.';
+  group.appendChild(row(who, `${state}${hasValidToken() ? ' Sesión activa.' : ''}${cfg.settingsError ? ` Último error: ${cfg.settingsError}` : ''}`, syncBtn));
+  group.appendChild(row('Sincronizar ajustes y bolis',
+    'Bolis y colores guardados, formas, papel y el resto de ajustes, iguales en todos los dispositivos donde entres. Gana el cambio más reciente.',
+    switchCtl(cfg.syncSettings !== false, async v => {
+      await setDriveConfig({ syncSettings: v });
+    })));
+}
+
+/** Apartado «Cuenta de Google» de Ajustes (cuenta, sincronización y copia en Drive). */
 export async function renderDriveGroup(app, group) {
   const render = async () => {
     clear(group);
-    group.appendChild(h('h3', 'Copia en Google Drive'));
+    group.appendChild(h('h3', 'Cuenta de Google'));
     const cfg = await getDriveConfig();
     if (!cfg.clientId) {
       const setup = h('button.btn.btn-sm.btn-primary', { type: 'button' }, iconEl('drive'), 'Configurar…');
       setup.addEventListener('click', () => openDriveSetup(app, render));
-      group.appendChild(row('Guardar copias en tu Google Drive',
-        'Copias automáticas en la nube, también en Android y iPad, para no perder nada aunque se rompa o se pierda la tablet. Hay que configurarlo una vez (unos minutos).',
+      group.appendChild(row('Entrar con tu cuenta de Google',
+        'Tus ajustes y bolis guardados en todos tus dispositivos, y copias automáticas de tus apuntes en tu Drive para no perder nada aunque se rompa o se pierda la tablet. Hay que configurarlo una vez (unos minutos).',
         setup));
       return;
     }
+    renderAccount(app, group, cfg, render);
     const now = h('button.btn.btn-sm.btn-primary', { type: 'button' }, iconEl('cloudUp'), 'Copiar ahora');
     now.addEventListener('click', async () => {
       now.disabled = true;
@@ -212,10 +275,10 @@ export async function renderDriveGroup(app, group) {
     change.addEventListener('click', () => openDriveSetup(app, render));
     const off = h('button.btn.btn-sm.btn-danger-ghost', { type: 'button' }, 'Quitar');
     off.addEventListener('click', async () => {
-      const ok = await confirmDialog('Se dejarán de hacer copias en Google Drive. Las copias que ya están en tu Drive no se borran.', { title: '¿Quitar Google Drive?', confirmLabel: 'Quitar' });
+      const ok = await confirmDialog('Se cerrará la cuenta en este dispositivo: dejarán de sincronizarse los ajustes y de hacerse copias en Google Drive. Lo que ya está en tu Drive no se borra.', { title: '¿Salir de la cuenta de Google?', confirmLabel: 'Quitar' });
       if (!ok) return;
       disconnectDrive();
-      await setDriveConfig({ clientId: '', connected: false, folderId: null });
+      await setDriveConfig({ clientId: '', connected: false, folderId: null, accountEmail: '', accountName: '' });
       render();
     });
     const short = cfg.clientId.length > 24 ? `${cfg.clientId.slice(0, 12)}…${cfg.clientId.slice(-26)}` : cfg.clientId;

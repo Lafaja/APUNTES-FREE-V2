@@ -28,6 +28,37 @@ export class Toolbar {
     settings.on('change', ({ key }) => {
       if (key === 'presets' || key === 'activePresetId' || key === '*') this.render();
     });
+    // Si la barra no cabe en una fila, las herramientas bajan a otra fila (nunca se esconden).
+    this.bar = root.closest('.ed-toolbar');
+    if (this.bar && globalThis.ResizeObserver) {
+      // Fuera del aviso del observador: cambiar la clase redimensiona lo observado.
+      this._fitObs = new ResizeObserver(() => {
+        clearTimeout(this._fitTimer);
+        this._fitTimer = setTimeout(() => this.fit(), 0);
+      });
+      for (const el of [this.bar, this.bar.querySelector('.ed-right'), this.bar.querySelector('.ed-left')]) if (el) this._fitObs.observe(el);
+    }
+  }
+
+  /** Decide si la barra va en una fila o con las herramientas en filas propias debajo. */
+  fit() {
+    const bar = this.bar;
+    if (!bar || !bar.clientWidth) return;
+    const left = bar.querySelector('.ed-left');
+    const right = bar.querySelector('.ed-right');
+    const width = el => {
+      // Ancho natural: suma de los hijos visibles (no depende de si ahora está partido en filas).
+      const cs = getComputedStyle(el);
+      const kids = [...el.children].filter(c => !c.hidden && c.offsetParent !== null);
+      const gap = parseFloat(cs.columnGap) || 0;
+      // El título se recorta con «…»: cuenta como mucho 160 px (igual en una fila que partida).
+      return kids.reduce((a, c) => a + (c.classList.contains('ed-title') ? Math.min(160, c.scrollWidth) : c.offsetWidth), 0) + gap * Math.max(0, kids.length - 1) + (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+    };
+    const cs = getComputedStyle(bar);
+    const avail = bar.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    const gap = parseFloat(cs.columnGap) || 0;
+    const need = (left ? width(left) : 0) + width(this.root) + (right ? width(right) : 0) + gap * 2;
+    bar.classList.toggle('stacked', need > avail);
   }
 
   render() {
@@ -88,6 +119,7 @@ export class Toolbar {
       this.root.appendChild(b);
     }
     this.syncDisabled();
+    this.fit();
   }
 
   syncActive() {

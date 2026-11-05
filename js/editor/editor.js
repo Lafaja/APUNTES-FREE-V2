@@ -15,7 +15,8 @@ import { Toolbar } from './toolbar.js';
 import { RadialMenu } from './radial.js';
 import { DocSearch } from './search.js';
 import { DocTabs } from './tabs.js';
-import { importImageFile } from '../render/images.js';
+import { importImageFile, loadImage } from '../render/images.js';
+import { cropDialog } from '../dialogs/crop.js';
 import { updateThumbnail } from '../render/thumbs.js';
 import { destPoint } from '../render/pdfnav.js';
 import { h, iconEl, $, clear } from '../ui/dom.js';
@@ -911,7 +912,15 @@ export class Editor {
     if (!pane || pane.session.readOnly) return;
     const stop = toast('Insertando imagen…', { duration: 0 });
     try {
-      const { blobId, width, height } = await importImageFile(file);
+      let { blobId, width, height } = await importImageFile(file);
+      // Recortar antes de colocarla (se puede volver a recortar después desde la selección).
+      stop();
+      const crop = await cropDialog(await loadImage(blobId), null, { title: 'Insertar imagen', confirmLabel: 'Insertar', fullLabel: 'Usar entera' });
+      if (crop === undefined) return;
+      if (crop) {
+        width = crop.w;
+        height = crop.h;
+      }
       const s = pane.session;
       const v = pane.viewer;
       const index = v.currentPage;
@@ -923,7 +932,7 @@ export class Editor {
       const k = Math.min(1, maxW / width, maxH / height);
       const w = Math.max(20, width * k);
       const hh = Math.max(20, height * k);
-      const img = { id: uid('i'), blobId, x: vis.x + (vis.w - w) / 2, y: vis.y + (vis.h - hh) / 2, w, h: hh, rot: 0 };
+      const img = { id: uid('i'), blobId, x: vis.x + (vis.w - w) / 2, y: vis.y + (vis.h - hh) / 2, w, h: hh, rot: 0, ...(crop ? { crop } : {}) };
       s.addImages(ref.id, [img], { label: 'Imagen', origin: v });
       this.useLasso();
       this.selection.set(v, ref.id, new Set(), new Set([img.id]));

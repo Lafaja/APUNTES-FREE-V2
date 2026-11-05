@@ -392,6 +392,13 @@ body.lib-dragging, body.lib-dragging * { cursor: grabbing !important; }
   background: var(--surface); border-bottom: 1px solid var(--border);
   position: relative; z-index: 20;
 }
+/* Barra que no cabe en una fila (lo decide Toolbar.fit): herramientas en su propia fila, partidas en
+   varias si hace falta; los botones de la derecha también bajan de línea. Nada queda oculto. */
+.ed-toolbar.stacked { flex-wrap: wrap; row-gap: 6px; }
+.ed-toolbar.stacked .ed-left { flex: 1 1 auto; max-width: none; }
+.ed-toolbar.stacked .ed-right { flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.ed-toolbar.stacked .ed-center { order: 3; flex-basis: 100%; }
+.ed-toolbar.stacked .ed-tools { flex-wrap: wrap; justify-content: center; overflow: visible; }
 /* Pestañas de documentos (encima de la barra del editor) */
 .ed-tabs {
   display: flex; align-items: flex-end; gap: 3px;
@@ -916,6 +923,23 @@ textarea.text-area { height: auto; min-height: 140px; padding: 10px 12px; resize
 .boot-error h1 { font-size: 20px; margin: 0 0 8px; }
 .boot-error p { color: var(--text-2); }
 
+/* ---------- Recortar imagen ---------- */
+.crop-body { display: flex; flex-direction: column; align-items: center; }
+.crop-stage { position: relative; overflow: hidden; line-height: 0; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 6px; background: var(--surface-2); }
+.crop-canvas { display: block; }
+.crop-box { position: absolute; outline: 2px solid #fff; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(0, 0, 0, 0.35); cursor: move; touch-action: none; }
+.crop-handle { position: absolute; width: 34px; height: 34px; margin: -17px 0 0 -17px; touch-action: none; }
+.crop-handle::after { content: ''; position: absolute; inset: 10px; background: #fff; border-radius: 4px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.45); }
+.crop-handle.h-nw { left: 0; top: 0; cursor: nwse-resize; }
+.crop-handle.h-n { left: 50%; top: 0; cursor: ns-resize; }
+.crop-handle.h-ne { left: 100%; top: 0; cursor: nesw-resize; }
+.crop-handle.h-e { left: 100%; top: 50%; cursor: ew-resize; }
+.crop-handle.h-se { left: 100%; top: 100%; cursor: nwse-resize; }
+.crop-handle.h-s { left: 50%; top: 100%; cursor: ns-resize; }
+.crop-handle.h-sw { left: 0; top: 100%; cursor: nesw-resize; }
+.crop-handle.h-w { left: 0; top: 50%; cursor: ew-resize; }
+.crop-hint { font-size: 13px; text-align: center; }
+
 /* ---------- Adaptación a pantallas estrechas ---------- */
 @media (max-width: 1100px) {
   .btn-label { display: none; }
@@ -931,8 +955,6 @@ textarea.text-area { height: auto; min-height: 140px; padding: 10px 12px; resize
   .lib-tab { flex: 1; }
   .ed-left { max-width: 40%; }
   .ed-title { max-width: 150px; }
-  .ed-toolbar { flex-wrap: wrap; }
-  .ed-center { order: 3; flex-basis: 100%; }
   .lib-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 18px 12px; }
   .card-visual { height: 170px; }
 }

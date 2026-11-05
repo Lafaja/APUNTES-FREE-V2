@@ -71,9 +71,37 @@ class App {
     this.onRoute(true);
     this.receiveExternalFiles();
     setTimeout(() => this.autoBackup(), 20000);
+    this.startAccountSync();
     // Errores y sugerencias que quedaron pendientes de enviar.
     setTimeout(() => flushFeedback(), 8000);
     window.addEventListener('online', () => flushFeedback());
+  }
+
+  /**
+   * Cuenta de Google: sube los cambios de ajustes y bolis y trae los de otros dispositivos.
+   * La sesión de Google no sobrevive a cerrar la app, así que al abrirla se ofrece renovarla con un toque
+   * (solo si hay cambios pendientes o hace rato que no se sincroniza).
+   */
+  async startAccountSync() {
+    try {
+      const sync = await import('./core/sync.js');
+      sync.startSettingsSync();
+      if (!(await sync.syncEnabled())) return;
+      const gd = await import('./core/gdrive.js');
+      if (gd.hasValidToken()) return;
+      const cfg = await gd.getDriveConfig();
+      if (!cfg.settingsPending && cfg.settingsSyncedAt && Date.now() - cfg.settingsSyncedAt < 12 * 3600000) return;
+      const { signInAndSync } = await import('./dialogs/drive.js');
+      await gd.loadGoogleIdentity().catch(() => {});
+      setTimeout(() => {
+        toast(cfg.settingsPending ? 'Hay ajustes sin subir a tu cuenta de Google' : 'Trae tus ajustes y bolis de tu cuenta de Google', {
+          duration: 9000,
+          action: { label: 'Sincronizar', fn: () => signInAndSync(this, cfg) }
+        });
+      }, 3000);
+    } catch (err) {
+      console.warn('Sincronización de la cuenta no disponible', err);
+    }
   }
 
   /** Copia automática en la carpeta elegida y/o en Google Drive, si está activada y toca (nunca bloquea la interfaz). */
@@ -159,6 +187,8 @@ class App {
       toast(`Error: ${msg}`, { type: 'error', duration: 9000 });
     };
     window.addEventListener('error', e => {
+      // Aviso inofensivo del navegador cuando un tamaño cambia mientras se ajusta la interfaz.
+      if (/ResizeObserver loop/i.test(e.message || '')) return;
       console.error('Error no controlado:', e.error || e.message);
       recordError(e.error || e.message);
       show(e.error || e.message);

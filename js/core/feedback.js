@@ -39,7 +39,9 @@ export async function diagnosticText(app) {
     `Instalada: ${standalone}`,
     `Persistente: ${app.persisted}`,
     `Uso: ${formatBytes(est.usage || 0)} / ${formatBytes(est.quota || 0)}`,
-    `Datos: ${JSON.stringify(counts)}`
+    `Datos: ${JSON.stringify(counts)}`,
+    'Registro de ajustes:',
+    ...(await import('./toolhistory.js').then(m => m.settingsLog()).catch(() => [])).slice(-15)
   ].join('\n');
 }
 

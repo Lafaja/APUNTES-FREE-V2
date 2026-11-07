@@ -956,6 +956,8 @@ textarea.text-area { height: auto; min-height: 140px; padding: 10px 12px; resize
 .layout-row.off .layout-icon, .layout-row.off .row-text { opacity: 0.45; }
 .layout-icon { width: 34px; height: 34px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; background: var(--surface-2); }
 .layout-icon .svg-icon { width: 20px; height: 20px; }
+.hist-swatches { display: inline-flex; gap: 3px; flex: none; }
+.hist-swatches i { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 1px var(--border-strong); }
 
 /* ---------- Recortar imagen ---------- */
 .crop-body { display: flex; flex-direction: column; align-items: center; }

@@ -3,7 +3,7 @@
 // AL PUBLICAR CAMBIOS: sube VERSION (y APP_VERSION en js/core/version.js). Así la app detecta la
 // nueva versión y ofrece «Actualizar» (guardando antes todo lo pendiente).
 
-const VERSION = '2.19.0';
+const VERSION = '2.21.0';
 const PREFIX = 'tablet-studio-v2-';
 const CACHE = `${PREFIX}${VERSION}`;
 const RUNTIME = `${PREFIX}runtime`;
@@ -27,6 +27,7 @@ const PRECACHE = [
   './js/core/settings.js',
   './js/core/share.js',
   './js/core/sync.js',
+  './js/core/toolhistory.js',
   './js/core/textindex.js',
   './js/core/util.js',
   './js/core/version.js',
@@ -34,6 +35,7 @@ const PRECACHE = [
   './js/dialogs/basic.js',
   './js/dialogs/crop.js',
   './js/dialogs/customize.js',
+  './js/dialogs/toolhistory.js',
   './js/dialogs/drive.js',
   './js/dialogs/export.js',
   './js/dialogs/feedback.js',

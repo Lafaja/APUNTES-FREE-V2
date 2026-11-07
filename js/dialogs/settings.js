@@ -54,6 +54,15 @@ function timingRow(key, title, sub) {
   return wrap;
 }
 
+function historyBtn() {
+  const b = h('button.btn.btn-sm.btn-outline', { type: 'button' }, iconEl('history'), 'Recuperar…');
+  b.addEventListener('click', async () => {
+    const { openToolHistoryDialog } = await import('./toolhistory.js');
+    openToolHistoryDialog();
+  });
+  return b;
+}
+
 function customizeBtn() {
   const b = h('button.btn.btn-sm.btn-outline', { type: 'button' }, iconEl('settings'), 'Personalizar…');
   b.addEventListener('click', async () => {
@@ -124,6 +133,7 @@ export async function openSettingsDialog(app, section) {
       { id: 'presets', label: 'Bolis guardados' }, { id: 'kit', label: 'Por herramientas' }
     ], settings.get('toolbarMode'), v => settings.set('toolbarMode', v))),
     row('Qué sale y en qué orden', 'Elige qué herramientas aparecen en la barra y en el menú circular, y colócalas a tu gusto. Cada método guarda lo suyo.', customizeBtn()),
+    row('Recuperar una configuración anterior', 'Si se te ha cambiado o perdido la configuración de herramientas (método, bolis, grosores, colores, barra y menú), vuelve a una guardada antes en esta tablet o en tu cuenta de Google.', historyBtn()),
     h('h3', { style: { marginTop: '18px' } }, 'Menú circular'),
     row('Qué es', 'Un círculo con tus herramientas y colores (y grosores, en «Por herramientas»). Elige arrastrando hasta una opción y soltando, o suelta y toca la opción. Puedes abrirlo de varias formas a la vez:', null),
     row('Mantener pulsado', 'Deja el lápiz o el dedo quieto sobre la página.', switchCtl(settings.get('radialMenu'), v => settings.set('radialMenu', v))),

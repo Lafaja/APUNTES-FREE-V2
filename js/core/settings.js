@@ -336,6 +336,18 @@ class Settings extends Emitter {
     return structuredCloneSafe(rest);
   }
 
+  /** Aplica solo estas claves (p. ej. recuperar la configuración de herramientas) y las da por cambiadas ahora. */
+  applyPartial(obj) {
+    if (!obj || typeof obj !== 'object') return;
+    const keys = Object.keys(obj).filter(k => k in DEFAULTS);
+    for (const k of keys) this.data[k] = structuredCloneSafe(obj[k]);
+    this.sanitize();
+    for (const k of keys) this._dirty.add(k);
+    this.stamp(keys, Date.now());
+    this.saveNow();
+    this.emit('change', { key: '*' });
+  }
+
   importFrom(obj) {
     if (!obj || typeof obj !== 'object') return;
     this.data = { ...this.data, ...obj };

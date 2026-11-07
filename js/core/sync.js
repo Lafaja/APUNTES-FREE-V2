@@ -8,7 +8,8 @@
 import { settings } from './settings.js';
 import * as gdrive from './gdrive.js';
 
-const FILE = 'Apunteo - ajustes.json';
+export const SETTINGS_FILE = 'Apunteo - ajustes.json';
+const FILE = SETTINGS_FILE;
 const UPLOAD_DELAY = 4000;
 
 let timer = null;
@@ -61,7 +62,10 @@ async function doSync() {
     }
   }
   const adopted = Object.keys(adoptV);
-  if (adopted.length) settings.adoptSynced(adoptV, adoptS);
+  if (adopted.length) {
+    settings.adoptSynced(adoptV, adoptS);
+    import('./toolhistory.js').then(m => m.logSettings(`Sincronizar: traído de la cuenta ${adopted.join(', ')}`)).catch(() => {});
+  }
   if (needUpload) {
     // Ajustes sin fecha (de antes de las cuentas): marca 1 = «muy antiguos». Así cualquier cambio real
     // de otro dispositivo gana, pero un dispositivo recién estrenado (marca 0) sí los adopta.

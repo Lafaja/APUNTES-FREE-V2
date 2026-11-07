@@ -324,7 +324,10 @@ export async function restoreBackup(file, { mode = 'merge', applySettings = fals
   }
   if (applySettings) {
     const s = await zr.readJSON('settings.json').catch(() => null);
-    if (s) settings.importFrom(s);
+    if (s) {
+      settings.importFrom(s);
+      import('./toolhistory.js').then(m => m.logSettings('Ajustes restaurados desde una copia de seguridad')).catch(() => {});
+    }
   }
   return report;
 }

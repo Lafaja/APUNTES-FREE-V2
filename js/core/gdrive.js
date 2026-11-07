@@ -240,6 +240,24 @@ export async function readAppJson(name) {
   }
 }
 
+/** Versiones anteriores que Drive guarda de un JSON de la app (de la más reciente a la más antigua). */
+export async function listAppJsonRevisions(name) {
+  const { file } = await findAppFile(name);
+  if (!file) return [];
+  const r = await api(`files/${encodeURIComponent(file.id)}/revisions`, { query: { fields: 'revisions(id,modifiedTime)', pageSize: '200' } });
+  const list = (await r.json()).revisions || [];
+  return list.map(x => ({ fileId: file.id, id: x.id, at: Date.parse(x.modifiedTime) || 0 })).sort((a, b) => b.at - a.at);
+}
+
+export async function readAppJsonRevision(rev) {
+  const r = await api(`files/${encodeURIComponent(rev.fileId)}/revisions/${encodeURIComponent(rev.id)}`, { query: { alt: 'media' } });
+  try {
+    return JSON.parse(await r.text());
+  } catch {
+    return null;
+  }
+}
+
 /** Guarda (crea o reemplaza) un JSON en la carpeta de la app en Drive. */
 export async function writeAppJson(name, obj) {
   const { folderId, file } = await findAppFile(name);

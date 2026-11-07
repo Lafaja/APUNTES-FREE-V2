@@ -72,6 +72,11 @@ class App {
     this.receiveExternalFiles();
     setTimeout(() => this.autoBackup(), 20000);
     this.startAccountSync();
+    import('./core/toolhistory.js').then(m => m.startToolHistory()).then(res => {
+      if (res && res.restored && res.restored.length) {
+        toast('Se ha vuelto a poner tu configuración de herramientas', { type: 'success', duration: 6000, action: { label: 'Ver', fn: () => this.openSettings('tools') } });
+      }
+    }).catch(err => console.warn('Historial de herramientas no disponible', err));
     // Errores y sugerencias que quedaron pendientes de enviar.
     setTimeout(() => flushFeedback(), 8000);
     window.addEventListener('online', () => flushFeedback());

@@ -63,11 +63,24 @@ function customizeBtn() {
   return b;
 }
 
-export async function openSettingsDialog(app, section) {
-  const body = h('div');
+// Pestañas de Ajustes (id, nombre, icono). La última abierta se recuerda en este dispositivo.
+const TABS = [
+  { id: 'general', label: 'General', icon: 'settings' },
+  { id: 'writing', label: 'Escritura', icon: 'pen' },
+  { id: 'tools', label: 'Barra y menú', icon: 'palette' },
+  { id: 'gestures', label: 'Gestos y tiempos', icon: 'hand' },
+  { id: 'data', label: 'Datos y cuenta', icon: 'shield' },
+  { id: 'app', label: 'App', icon: 'info' }
+];
+const TAB_KEY = 'ts2.settingsTab';
 
-  // ---------- Apariencia ----------
-  body.appendChild(h('div.settings-group',
+export async function openSettingsDialog(app, section) {
+  const body = h('div.settings-body');
+  const panels = new Map(TABS.map(t => [t.id, h('div.settings-panel', { dataset: { panel: t.id } })]));
+  const add = (tab, el) => panels.get(tab).appendChild(el);
+
+  // ---------- General ----------
+  add('general', h('div.settings-group',
     h('h3', 'Apariencia'),
     row('Tema', 'Automático sigue el modo claro/oscuro del sistema.', null),
     h('div', { style: { paddingBottom: '12px' } }, segmented([
@@ -75,44 +88,57 @@ export async function openSettingsDialog(app, section) {
     ], settings.get('theme'), v => {
       settings.set('theme', v);
       applyTheme();
-    }))
+    })),
+    row('Unidades de medida', 'Para el grosor de plumas, borrador y formas, y la separación de las líneas del papel.', null),
+    h('div', { style: { paddingBottom: '12px' } }, segmented([
+      { id: 'mm', label: 'Milímetros' }, { id: 'cm', label: 'Centímetros' }, { id: 'pt', label: 'Puntos' }, { id: 'px', label: 'Píxeles' }
+    ], settings.get('units'), v => settings.set('units', v))),
+    row('Pestañas de documentos', 'Cada documento que abres queda como pestaña encima de la barra para cambiar entre ellos. «+» abre otro; la «x» cierra la pestaña (no borra nada).', null),
+    h('div', { style: { paddingBottom: '12px' } }, segmented([
+      { id: 'always', label: 'Siempre' }, { id: 'auto', label: 'Con 2 o más' }, { id: 'off', label: 'Ocultas' }
+    ], settings.get('tabsBar'), v => settings.set('tabsBar', v))),
+    row('Botones de zoom', 'Muestra − 100 % + en la esquina del documento.', switchCtl(settings.get('showZoomControls'), v => settings.set('showZoomControls', v))),
+    row('Mantener pantalla completa', 'Al volver de otra app (Google, la cámara…) la pantalla completa vuelve sola con el primer toque. Se activa al pulsar el botón de pantalla completa y se quita al pulsarlo otra vez.', switchCtl(settings.get('keepFullscreen'), v => settings.set('keepFullscreen', v)))
   ));
 
   // ---------- Escritura ----------
-  body.appendChild(h('div.settings-group',
+  add('writing', h('div.settings-group',
     h('h3', 'Escritura'),
     row('Uso del dedo', 'Automático: el dedo dibuja hasta que la app detecta un lápiz; después el dedo solo desplaza (rechazo de palma).', null),
     h('div', { style: { paddingBottom: '12px' } }, segmented([
       { id: 'auto', label: 'Automático' }, { id: 'pan', label: 'Desplazar' }, { id: 'draw', label: 'Dibujar' }
     ], settings.get('fingerMode'), v => settings.set('fingerMode', v))),
-    row('Unidades de medida', 'Para el grosor de plumas, borrador y formas, y la separación de las líneas del papel.', null),
-    h('div', { style: { paddingBottom: '12px' } }, segmented([
-      { id: 'mm', label: 'Milímetros' }, { id: 'cm', label: 'Centímetros' }, { id: 'pt', label: 'Puntos' }, { id: 'px', label: 'Píxeles' }
-    ], settings.get('units'), v => settings.set('units', v))),
     row('Sensibilidad a la presión', 'Cuanto más aprietas el lápiz, más ancha sale la línea. Solo con lápices que detectan presión; afecta a lo que escribas a partir de ahora, no a lo ya escrito.', null),
     h('div', { style: { paddingBottom: '12px' } }, segmented([
       { id: 'off', label: 'Desactivada' }, { id: 'soft', label: 'Suave' }, { id: 'normal', label: 'Normal' }, { id: 'strong', label: 'Fuerte' }
     ], settings.get('pressure'), v => settings.set('pressure', v))),
-    row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto un momento (se ajusta en «Tiempos»): la línea, flecha, círculo, rectángulo o triángulo se vuelve perfecto. Sin levantarlo, en una línea cambias el ángulo (el primer punto queda fijo) y en un círculo el tamaño.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
-    h('h3', { style: { marginTop: '18px' } }, 'Menú circular de herramientas'),
-    row('Qué es', 'Un círculo con tus plumas, herramientas y colores. Elige arrastrando hasta una opción y soltando, o suelta y toca la opción. Puedes abrirlo de varias formas a la vez:', null),
+    row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto un momento (se ajusta en «Gestos y tiempos»): la línea, flecha, círculo, rectángulo o triángulo se vuelve perfecto. Sin levantarlo, en una línea cambias el ángulo (el primer punto queda fijo) y en un círculo el tamaño.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
+    row('Añadir página al escribir al final', 'En apuntes, crea una hoja nueva cuando escribes en la parte baja de la última.', switchCtl(settings.get('autoAddPages'), v => settings.set('autoAddPages', v)))
+  ));
+
+  // ---------- Barra y menú circular ----------
+  add('tools', h('div.settings-group',
+    h('h3', 'Método de la barra de dibujo'),
+    row('Cómo eliges con qué escribir', '«Bolis guardados»: cada botón es un boli con su color y grosor. «Por herramientas»: bolígrafo, pluma, pincel, lápiz y subrayador, cada uno con 3 grosores y 5 colores propios (toca uno ya elegido para cambiarlo). El menú circular sigue el mismo método.', null),
+    h('div', { style: { paddingBottom: '12px' } }, segmented([
+      { id: 'presets', label: 'Bolis guardados' }, { id: 'kit', label: 'Por herramientas' }
+    ], settings.get('toolbarMode'), v => settings.set('toolbarMode', v))),
+    row('Qué sale y en qué orden', 'Elige qué herramientas aparecen en la barra y en el menú circular, y colócalas a tu gusto. Cada método guarda lo suyo.', customizeBtn()),
+    h('h3', { style: { marginTop: '18px' } }, 'Menú circular'),
+    row('Qué es', 'Un círculo con tus herramientas y colores (y grosores, en «Por herramientas»). Elige arrastrando hasta una opción y soltando, o suelta y toca la opción. Puedes abrirlo de varias formas a la vez:', null),
     row('Mantener pulsado', 'Deja el lápiz o el dedo quieto sobre la página.', switchCtl(settings.get('radialMenu'), v => settings.set('radialMenu', v))),
     h('div', { style: { paddingBottom: '8px' } }, segmented([
       { id: 'both', label: 'Lápiz y dedo' }, { id: 'pen', label: 'Solo lápiz' }, { id: 'finger', label: 'Solo dedo' }
     ], settings.get('radialMenuInput'), v => settings.set('radialMenuInput', v))),
     row('Doble toque con el dedo', 'Dos toques rápidos en el mismo sitio (cuando el dedo desplaza la página).', switchCtl(settings.get('radialDoubleTap'), v => settings.set('radialDoubleTap', v))),
     row('Botón lateral del lápiz', 'Pulsa el botón del lápiz y toca la pantalla. Sustituye al borrado con el botón (el extremo borrador sigue borrando).', switchCtl(settings.get('radialPenButton'), v => settings.set('radialPenButton', v))),
-    row('Botón flotante', 'Un botón con una paleta en la esquina inferior izquierda del documento.', switchCtl(settings.get('radialFab'), v => settings.set('radialFab', v))),
-    h('h3', { style: { marginTop: '18px' } }, 'Gestos'),
-    row('Toque con dos dedos = deshacer', 'Y con tres dedos, rehacer. Con un dedo (si el dedo desplaza) se siguen los enlaces del PDF.', switchCtl(settings.get('twoFingerUndo'), v => settings.set('twoFingerUndo', v))),
-    row('Añadir página al escribir al final', 'En apuntes, crea una hoja nueva cuando escribes en la parte baja de la última.', switchCtl(settings.get('autoAddPages'), v => settings.set('autoAddPages', v))),
-    row('Botones de zoom', 'Muestra − 100 % + en la esquina del documento.', switchCtl(settings.get('showZoomControls'), v => settings.set('showZoomControls', v))),
-    row('Mantener pantalla completa', 'Al volver de otra app (Google, la cámara…) la pantalla completa vuelve sola con el primer toque. Se activa al pulsar el botón de pantalla completa y se quita al pulsarlo otra vez.', switchCtl(settings.get('keepFullscreen'), v => settings.set('keepFullscreen', v))),
-    row('Barra de dibujo y menú circular', 'Elige el método («Bolis guardados» o «Por herramientas») y qué sale, y en qué orden, en la barra y en el menú circular.', customizeBtn()),
-    row('Pestañas de documentos', 'Cada documento que abres queda como pestaña encima de la barra para cambiar entre ellos. «+» abre otro; la «x» cierra la pestaña (no borra nada).', null),
-    h('div', { style: { paddingBottom: '12px' } }, segmented([
-      { id: 'always', label: 'Siempre' }, { id: 'auto', label: 'Con 2 o más' }, { id: 'off', label: 'Ocultas' }
-    ], settings.get('tabsBar'), v => settings.set('tabsBar', v)))
+    row('Botón flotante', 'Un botón con una paleta en la esquina inferior izquierda del documento.', switchCtl(settings.get('radialFab'), v => settings.set('radialFab', v)))
+  ));
+
+  // ---------- Gestos ----------
+  add('gestures', h('div.settings-group',
+    h('h3', 'Gestos'),
+    row('Toque con dos dedos = deshacer', 'Y con tres dedos, rehacer. Con un dedo (si el dedo desplaza) se siguen los enlaces del PDF.', switchCtl(settings.get('twoFingerUndo'), v => settings.set('twoFingerUndo', v)))
   ));
 
   // ---------- Tiempos ----------
@@ -125,7 +151,7 @@ export async function openSettingsDialog(app, section) {
     timingRow('palmGuardMs', 'Rechazo de palma tras el lápiz', 'Tiempo durante el que se ignoran los dedos después de levantar el lápiz. Súbelo si la mano mueve la página sin querer.'),
     timingRow('dragHoldMs', 'Biblioteca: mantener para arrastrar', 'Cuánto mantener pulsada una tarjeta para moverla a una carpeta.')
   ];
-  body.appendChild(h('div.settings-group',
+  add('gestures', h('div.settings-group',
     h('h3', 'Tiempos'),
     ...timingRows,
     h('div', { style: { padding: '8px 0 12px' } }, h('button.btn.btn-sm.btn-outline', { type: 'button', on: { click: () => {
@@ -136,7 +162,7 @@ export async function openSettingsDialog(app, section) {
 
   // ---------- Almacenamiento ----------
   const storageGroup = h('div.settings-group', { id: 'settings-storage' });
-  body.appendChild(storageGroup);
+  add('data', storageGroup);
   const renderStorage = async () => {
     clear(storageGroup);
     storageGroup.appendChild(h('h3', 'Almacenamiento y seguridad de los datos'));
@@ -240,7 +266,7 @@ export async function openSettingsDialog(app, section) {
 
   // ---------- Google Drive ----------
   const driveGroup = h('div.settings-group', { id: 'settings-drive' });
-  body.appendChild(driveGroup);
+  add('data', driveGroup);
   try {
     const { renderDriveGroup } = await import('./drive.js');
     await renderDriveGroup(app, driveGroup);
@@ -271,7 +297,7 @@ export async function openSettingsDialog(app, section) {
       h('li', 'iPad (Safari): botón Compartir → «Añadir a pantalla de inicio».'),
       h('li', 'Windows (Edge o Chrome): icono de instalar en la barra de direcciones, o menú → «Aplicaciones» → «Instalar».')));
   }
-  body.appendChild(installGroup);
+  add('app', installGroup);
 
   // ---------- Errores y sugerencias ----------
   const bugBtn = h('button.btn.btn-sm.btn-outline', { type: 'button' }, iconEl('alert'), 'Informar');
@@ -282,7 +308,7 @@ export async function openSettingsDialog(app, section) {
   };
   bugBtn.addEventListener('click', () => feedback('bug'));
   ideaBtn.addEventListener('click', () => feedback('idea'));
-  body.appendChild(h('div.settings-group', h('h3', 'Errores y sugerencias'),
+  add('app', h('div.settings-group', h('h3', 'Errores y sugerencias'),
     row('Informar de un error', 'Cuéntanos qué ha fallado y lo arreglaremos.', bugBtn),
     row('Sugerir una mejora', '¿Echas algo de menos? Escribe tu idea.', ideaBtn)));
 
@@ -297,10 +323,35 @@ export async function openSettingsDialog(app, section) {
       await alertDialog(text, 'Diagnóstico');
     }
   });
-  body.appendChild(h('div.settings-group', h('h3', 'Acerca de'), row(`Tablet Studio ${APP_VERSION}`, 'Apuntes a mano y PDF anotados. Todo se guarda en este dispositivo; nada se envía a internet salvo los mensajes de error o sugerencia que tú escribas.', diag)));
+  add('app', h('div.settings-group', h('h3', 'Acerca de'), row(`Tablet Studio ${APP_VERSION}`, 'Apuntes a mano y PDF anotados. Todo se guarda en este dispositivo; nada se envía a internet salvo los mensajes de error o sugerencia que tú escribas.', diag)));
+
+  // Pestañas
+  const tabBar = h('div.settings-tabs', { role: 'tablist' });
+  const show = id => {
+    for (const [k, el] of panels) el.hidden = k !== id;
+    tabBar.querySelectorAll('button').forEach(b => {
+      const on = b.dataset.tab === id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    try { localStorage.setItem(TAB_KEY, id); } catch {}
+    const scroller = body.closest('.modal-body');
+    if (scroller) scroller.scrollTop = 0;
+  };
+  for (const t of TABS) {
+    const b = h('button.settings-tab', { type: 'button', role: 'tab', dataset: { tab: t.id } }, iconEl(t.icon), h('span', t.label));
+    b.addEventListener('click', () => show(t.id));
+    tabBar.appendChild(b);
+  }
+  body.append(tabBar, ...panels.values());
+  let first = section === 'storage' || section === 'drive' ? 'data' : section && panels.has(section) ? section : null;
+  if (!first) {
+    try { first = localStorage.getItem(TAB_KEY); } catch {}
+    if (!panels.has(first)) first = 'general';
+  }
+  show(first);
 
   const m = openModal({ title: 'Ajustes', body, wide: true, buttons: [{ label: 'Cerrar', value: null, variant: 'btn-primary' }] });
-  if (section === 'storage') setTimeout(() => storageGroup.scrollIntoView({ block: 'start' }), 80);
   if (section === 'drive') setTimeout(() => driveGroup.scrollIntoView({ block: 'start' }), 80);
   return m.promise;
 }

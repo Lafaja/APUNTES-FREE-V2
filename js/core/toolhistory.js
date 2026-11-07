@@ -5,7 +5,12 @@
 import { settings } from './settings.js';
 import * as repo from './repo.js';
 
-export const TOOL_KEYS = ['toolbarMode', 'kit', 'layouts', 'presets', 'activePresetId', 'favColors', 'shape', 'eraser'];
+// Herramientas (método, bolis, grosores, colores, barra y menú) + gestos y tiempos.
+export const TOOL_KEYS = [
+  'toolbarMode', 'kit', 'layouts', 'presets', 'activePresetId', 'favColors', 'shape', 'eraser',
+  'radialMenu', 'radialMenuInput', 'radialDoubleTap', 'radialPenButton', 'radialFab', 'twoFingerUndo', 'shapeSnap', 'autoAddPages',
+  'shapeSnapDelay', 'shapeSnapTolerance', 'radialMenuDelay', 'doubleTapMs', 'gestureTapMs', 'palmGuardMs', 'dragHoldMs'
+];
 const HISTORY = 'toolHistory';
 const LOG = 'settingsLog';
 const MAX = 20;
@@ -19,7 +24,9 @@ export function snapshotTools() {
   return o;
 }
 
-const differing = (a, b) => TOOL_KEYS.filter(k => JSON.stringify(a ? a[k] : null) !== JSON.stringify(b ? b[k] : null));
+// Claves distintas entre dos instantáneas. Una clave que la instantánea guardada no tenía (ajuste nuevo de
+// una versión posterior) no cuenta como diferencia: no se había perdido nada.
+const differing = (saved, now) => TOOL_KEYS.filter(k => saved && k in saved && saved[k] !== null && JSON.stringify(saved[k]) !== JSON.stringify(now ? now[k] : null));
 
 /** Apunta un suceso en el registro de ajustes (se adjunta al «Copiar diagnóstico»). */
 export async function logSettings(text) {
@@ -40,7 +47,7 @@ export async function recordTools(reason) {
     const list = (await repo.getMeta(HISTORY, [])) || [];
     const snap = snapshotTools();
     const last = list[list.length - 1];
-    if (last && !differing(last.data, snap).length) return;
+    if (last && TOOL_KEYS.every(k => JSON.stringify(last.data[k] ?? null) === JSON.stringify(snap[k] ?? null))) return; // igual que la última
     list.push({ at: Date.now(), reason, data: snap });
     await repo.setMeta(HISTORY, list.slice(-MAX));
   } catch (err) {
@@ -81,9 +88,9 @@ export async function startToolHistory() {
       restored = Object.keys(o);
       if (restored.length) settings.applyPartial(o);
       await logSettings(`Al abrir, la configuración de herramientas era distinta de la última guardada (${diff.join(', ')}); se ha vuelto a poner: ${restored.join(', ') || 'nada'}`);
-    } else {
-      await recordTools(list.length ? 'al abrir la app' : 'primera vez');
     }
+    // Siempre una instantánea al día (incluye los ajustes nuevos que la anterior no tenía).
+    await recordTools(!list.length ? 'primera vez' : restored.length ? 'vuelta a poner al abrir' : 'al abrir la app');
   } catch (err) {
     console.warn('Historial de herramientas no disponible', err);
   }
@@ -98,6 +105,9 @@ export async function startToolHistory() {
     if (!e || !(TOOL_KEYS.includes(e.key) || e.key === '*')) return;
     reason = reasonNext || (e.synced ? 'de tu cuenta de Google' : 'cambio en este dispositivo');
     if (e.synced) logSettings(`Traído de la cuenta de Google: ${e.key}`);
+    // El primer cambio se guarda en el acto; si siguen llegando (p. ej. arrastrando un deslizador),
+    // se agrupan y se guarda otra vez al parar.
+    if (!timer) recordTools(reason);
     clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;

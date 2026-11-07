@@ -41,7 +41,7 @@ export async function openToolHistoryDialog() {
   let m;
 
   const restore = async (data, when, origin) => {
-    const ok = await confirmDialog(`Tu configuración de herramientas volverá a la del ${formatDateTime(when)}. La de ahora se guarda en el historial, por si quieres volver.`, { title: '¿Recuperar esta configuración?', confirmLabel: 'Recuperar' });
+    const ok = await confirmDialog(`Tus herramientas, gestos y tiempos volverán a los del ${formatDateTime(when)}. La de ahora se guarda en el historial, por si quieres volver.`, { title: '¿Recuperar esta configuración?', confirmLabel: 'Recuperar' });
     if (!ok) return;
     await applyTools(data, origin);
     toast('Configuración de herramientas recuperada', { type: 'success' });
@@ -105,13 +105,13 @@ export async function openToolHistoryDialog() {
   });
 
   const body = h('div',
-    h('p.panel-hint', 'La app guarda tu configuración de herramientas (método, bolis, grosores, colores, barra y menú) cada vez que la cambias. Elige una para volver a ella.'),
+    h('p.panel-hint', 'La app guarda tu configuración de herramientas (método, bolis, grosores, colores, barra y menú) y de gestos y tiempos cada vez que la cambias. Elige una para volver a ella.'),
     h('div.field', { style: { marginTop: '10px' } }, h('span', 'En esta tablet')),
     listLocal,
     h('div.field', { style: { marginTop: '18px' } }, h('span', 'En tu cuenta de Google')),
     h('div', { style: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } }, cloudBtn, cloudHint),
     listCloud);
 
-  m = openModal({ title: 'Recuperar configuración de herramientas', body, wide: true, buttons: [{ label: 'Cerrar', value: null, variant: 'btn-primary' }] });
+  m = openModal({ title: 'Recuperar herramientas, gestos y tiempos', body, wide: true, buttons: [{ label: 'Cerrar', value: null, variant: 'btn-primary' }] });
   return m.promise;
 }

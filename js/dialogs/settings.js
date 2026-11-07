@@ -133,7 +133,7 @@ export async function openSettingsDialog(app, section) {
       { id: 'presets', label: 'Bolis guardados' }, { id: 'kit', label: 'Por herramientas' }
     ], settings.get('toolbarMode'), v => settings.set('toolbarMode', v))),
     row('Qué sale y en qué orden', 'Elige qué herramientas aparecen en la barra y en el menú circular, y colócalas a tu gusto. Cada método guarda lo suyo.', customizeBtn()),
-    row('Recuperar una configuración anterior', 'Si se te ha cambiado o perdido la configuración de herramientas (método, bolis, grosores, colores, barra y menú), vuelve a una guardada antes en esta tablet o en tu cuenta de Google.', historyBtn()),
+    row('Recuperar una configuración anterior', 'Si se te ha cambiado o perdido la configuración de herramientas (método, bolis, grosores, colores, barra y menú) o de gestos y tiempos, vuelve a una guardada antes en esta tablet o en tu cuenta de Google.', historyBtn()),
     h('h3', { style: { marginTop: '18px' } }, 'Menú circular'),
     row('Qué es', 'Un círculo con tus herramientas y colores (y grosores, en «Por herramientas»). Elige arrastrando hasta una opción y soltando, o suelta y toca la opción. Puedes abrirlo de varias formas a la vez:', null),
     row('Mantener pulsado', 'Deja el lápiz o el dedo quieto sobre la página.', switchCtl(settings.get('radialMenu'), v => settings.set('radialMenu', v))),
@@ -148,7 +148,8 @@ export async function openSettingsDialog(app, section) {
   // ---------- Gestos ----------
   add('gestures', h('div.settings-group',
     h('h3', 'Gestos'),
-    row('Toque con dos dedos = deshacer', 'Y con tres dedos, rehacer. Con un dedo (si el dedo desplaza) se siguen los enlaces del PDF.', switchCtl(settings.get('twoFingerUndo'), v => settings.set('twoFingerUndo', v)))
+    row('Toque con dos dedos = deshacer', 'Y con tres dedos, rehacer. Con un dedo (si el dedo desplaza) se siguen los enlaces del PDF.', switchCtl(settings.get('twoFingerUndo'), v => settings.set('twoFingerUndo', v))),
+    row('Se guardan en tu cuenta', 'Los gestos y tiempos se guardan en esta tablet y, si has entrado con Google, en tu cuenta, igual que los bolis. Si alguna vez se pierden, vuelven solos al abrir la app.', historyBtn())
   ));
 
   // ---------- Tiempos ----------

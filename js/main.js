@@ -74,7 +74,7 @@ class App {
     this.startAccountSync();
     import('./core/toolhistory.js').then(m => m.startToolHistory()).then(res => {
       if (res && res.restored && res.restored.length) {
-        toast('Se ha vuelto a poner tu configuración de herramientas', { type: 'success', duration: 6000, action: { label: 'Ver', fn: () => this.openSettings('tools') } });
+        toast('Se ha vuelto a poner tu configuración de herramientas, gestos y tiempos', { type: 'success', duration: 6000, action: { label: 'Ver', fn: () => this.openSettings('tools') } });
       }
     }).catch(err => console.warn('Historial de herramientas no disponible', err));
     // Errores y sugerencias que quedaron pendientes de enviar.

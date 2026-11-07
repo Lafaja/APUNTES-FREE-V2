@@ -473,6 +473,12 @@ body.lib-dragging, body.lib-dragging * { cursor: grabbing !important; }
 }
 .tool-btn .tool-size { position: absolute; right: 4px; bottom: 3px; font-size: 9.5px; font-weight: 700; color: var(--text-3); }
 .tool-btn.add-tool { color: var(--text-3); width: 38px; }
+/* Modo por herramientas: huecos de grosor y de color (el elegido lleva un aro) */
+.tool-btn.kit-size, .tool-btn.kit-color { width: 38px; }
+.tool-btn.kit-size i { display: block; flex: none; background: var(--text); }
+.kit-swatch { width: 24px; height: 24px; border-radius: 50%; box-shadow: 0 0 0 1.5px var(--border-strong); }
+.tool-btn.kit-size.current, .tool-btn.kit-color.current { background: var(--surface); box-shadow: 0 0 0 2px var(--accent); }
+.panel-hint { margin: 8px 0 0; font-size: 12.5px; color: var(--text-3); }
 .tool-btn.disabled { opacity: 0.35; pointer-events: none; }
 @media (hover: hover) and (pointer: fine) {
   .tool-btn:hover:not(.active) { background: var(--surface-3); }
@@ -923,6 +929,15 @@ textarea.text-area { height: auto; min-height: 140px; padding: 10px 12px; resize
 .boot-error h1 { font-size: 20px; margin: 0 0 8px; }
 .boot-error p { color: var(--text-2); }
 
+/* ---------- Personalizar barra y menú circular ---------- */
+.layout-list { margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.layout-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-top: 1px solid var(--border); }
+.layout-row:first-child { border-top: 0; }
+.layout-row .row-text { flex: 1; min-width: 0; }
+.layout-row.off .layout-icon, .layout-row.off .row-text { opacity: 0.45; }
+.layout-icon { width: 34px; height: 34px; flex: none; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; background: var(--surface-2); }
+.layout-icon .svg-icon { width: 20px; height: 20px; }
+
 /* ---------- Recortar imagen ---------- */
 .crop-body { display: flex; flex-direction: column; align-items: center; }
 .crop-stage { position: relative; overflow: hidden; line-height: 0; touch-action: none; user-select: none; -webkit-user-select: none; border-radius: 6px; background: var(--surface-2); }
@@ -1003,6 +1018,9 @@ textarea.text-area { height: auto; min-height: 140px; padding: 10px 12px; resize
 }
 .radial-color.active .radial-dot { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
 .radial-color.hover { transform: translate(-50%, -50%) scale(1.3); }
+.radial-size { display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--surface-2); }
+.radial-size-dot { display: block; background: var(--text); }
+.radial-size.active { box-shadow: 0 0 0 2px var(--accent); }
 .radial-center { width: 40px; height: 40px; background: var(--surface-3); color: var(--text-2); font-size: 16px; }
 .radial-center.hover { background: var(--border-strong); }
 .radial-fab {

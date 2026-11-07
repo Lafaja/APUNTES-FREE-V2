@@ -1,6 +1,6 @@
 // Barra de herramientas del editor y paneles de ajustes de cada herramienta.
 
-import { settings, INK_COLORS, HIGHLIGHT_COLORS, formatLength } from '../core/settings.js';
+import { settings, INK_COLORS, HIGHLIGHT_COLORS, formatLength, KIT_TYPES, layoutItems } from '../core/settings.js';
 import { uid } from '../core/util.js';
 import { h, iconEl, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
@@ -18,6 +18,13 @@ function rememberColor(c) {
 
 const BRUSH_ICONS = { pen: 'pen', fountain: 'fountain', brush: 'brush', pencil: 'pencil', highlighter: 'highlighter' };
 const PEN_SIZES = [1.2, 2.2, 3.5, 6];
+export const TOOL_BUTTONS = [
+  { id: 'eraser', icon: 'eraser', name: 'Borrador', title: 'Borrador (toca otra vez para ajustes)' },
+  { id: 'lasso', icon: 'lasso', name: 'Lazo', title: 'Lazo: seleccionar, mover y copiar' },
+  { id: 'shape', icon: 'shapes', name: 'Formas', title: 'Formas (toca otra vez para ajustes)' },
+  { id: 'image', icon: 'image', name: 'Imagen', title: 'Insertar imagen o foto' },
+  { id: 'instruments', icon: 'ruler', name: 'Instrumentos', title: 'Regla, escuadra, cartabón, transportador y compás' }
+];
 const HL_SIZES = [10, 16, 24, 34];
 
 export class Toolbar {
@@ -26,7 +33,7 @@ export class Toolbar {
     this.root = root;
     this.render();
     settings.on('change', ({ key }) => {
-      if (key === 'presets' || key === 'activePresetId' || key === '*') this.render();
+      if (key === 'presets' || key === 'activePresetId' || key === 'kit' || key === 'toolbarMode' || key === 'layouts' || key === '*') this.render();
     });
     // Si la barra no cabe en una fila, las herramientas bajan a otra fila (nunca se esconden).
     this.bar = root.closest('.ed-toolbar');
@@ -62,8 +69,27 @@ export class Toolbar {
   }
 
   render() {
-    const ed = this.editor;
     clear(this.root);
+    // Orden y elementos elegidos en Ajustes → Personalizar; separador al cambiar de grupo.
+    const group = id => (id === 'presets' || KIT_TYPES.includes(id) ? 'write' : id === 'sizes' || id === 'colors' ? id : 'tools');
+    let last = null;
+    for (const id of layoutItems('toolbar')) {
+      const g = group(id);
+      if (last && g !== last) this.root.appendChild(h('span.tool-sep'));
+      last = g;
+      if (id === 'presets') this.renderPresets();
+      else if (KIT_TYPES.includes(id)) this.renderKitTool(id);
+      else if (id === 'sizes') this.renderKitSizes();
+      else if (id === 'colors') this.renderKitColors();
+      else this.renderTool(id);
+    }
+    this.syncDisabled();
+    this.fit();
+  }
+
+  /** Modo «bolis guardados»: una pluma por botón y el botón de añadir. */
+  renderPresets() {
+    const ed = this.editor;
     const presets = settings.get('presets');
     const activeId = settings.get('activePresetId');
     for (const p of presets) {
@@ -83,16 +109,68 @@ export class Toolbar {
     add.innerHTML = icon('plus');
     add.addEventListener('click', () => this.addPreset(add));
     this.root.appendChild(add);
-    this.root.appendChild(h('span.tool-sep'));
+  }
 
-    const tools = [
-      { id: 'eraser', icon: 'eraser', title: 'Borrador (toca otra vez para ajustes)' },
-      { id: 'lasso', icon: 'lasso', title: 'Lazo: seleccionar, mover y copiar' },
-      { id: 'shape', icon: 'shapes', title: 'Formas (toca otra vez para ajustes)' },
-      { id: 'image', icon: 'image', title: 'Insertar imagen o foto' },
-      { id: 'instruments', icon: 'ruler', title: 'Regla, escuadra, cartabón, transportador y compás' }
-    ];
-    for (const t of tools) {
+  /** Modo «por herramientas»: botón de una herramienta de escritura (tocarla otra vez: tipo de línea). */
+  renderKitTool(t) {
+    const ed = this.editor;
+    const kit = settings.get('kit');
+    const kc = kit[t].colors[kit[t].ci];
+    const b = h('button.tool-btn', { type: 'button', title: t === 'highlighter' ? BRUSHES[t].name : `${BRUSHES[t].name} (toca otra vez para el tipo de línea)`, dataset: { kit: t } });
+    b.innerHTML = icon(BRUSH_ICONS[t]);
+    b.style.setProperty('--ink', kc);
+    b.appendChild(h('span.tool-color', { style: { color: kc } }));
+    if (ed.tool === 'pen' && t === kit.tool) b.classList.add('active');
+    b.addEventListener('click', () => {
+      if (ed.tool === 'pen' && settings.get('kit').tool === t) {
+        if (t !== 'highlighter') this.openKitLinePanel(b);
+      } else ed.selectKitTool(t);
+    });
+    this.root.appendChild(b);
+  }
+
+  /** Los 3 grosores de la herramienta elegida (tocar el elegido permite cambiarlo). */
+  renderKitSizes() {
+    const ed = this.editor;
+    const kit = settings.get('kit');
+    const k = kit[kit.tool];
+    const isHl = kit.tool === 'highlighter';
+    k.sizes.forEach((w, i) => {
+      const dot = isHl ? Math.max(3, Math.min(16, w * 0.55)) : Math.max(3, Math.min(20, w * 2.6));
+      const b = h('button.tool-btn.kit-size', { type: 'button', title: `Grosor ${i + 1} (toca otra vez para cambiarlo)`, dataset: { kitSize: String(i) } },
+        h('i', { style: { width: `${isHl ? dot * 1.8 : dot}px`, height: `${dot}px`, borderRadius: isHl ? '3px' : '99px' } }));
+      if (i === k.si) b.classList.add('current');
+      b.addEventListener('click', () => {
+        if (ed.tool === 'pen' && settings.get('kit')[kit.tool].si === i) this.openKitSizePanel(b, i);
+        else ed.selectKitSize(i);
+      });
+      this.root.appendChild(b);
+    });
+  }
+
+  /** Los 5 colores de la herramienta elegida (tocar el elegido permite cambiarlo). */
+  renderKitColors() {
+    const ed = this.editor;
+    const kit = settings.get('kit');
+    const k = kit[kit.tool];
+    k.colors.forEach((c, i) => {
+      const b = h('button.tool-btn.kit-color', { type: 'button', title: `Color ${i + 1} (toca otra vez para cambiarlo)`, dataset: { kitColor: String(i) } },
+        h('span.kit-swatch', { style: { background: c } }));
+      if (i === k.ci) b.classList.add('current');
+      b.addEventListener('click', () => {
+        if (ed.tool === 'pen' && settings.get('kit')[kit.tool].ci === i) this.openKitColorPanel(b, i);
+        else ed.selectKitColor(i);
+      });
+      this.root.appendChild(b);
+    });
+  }
+
+  /** Borrador, lazo, formas, imagen o instrumentos (iguales en los dos modos). */
+  renderTool(id) {
+    const ed = this.editor;
+    const t = TOOL_BUTTONS.find(x => x.id === id);
+    if (!t) return;
+    {
       const b = h('button.tool-btn', { type: 'button', title: t.title, dataset: { tool: t.id } });
       b.innerHTML = icon(t.icon);
       if (ed.tool === t.id) b.classList.add('active');
@@ -118,15 +196,16 @@ export class Toolbar {
       });
       this.root.appendChild(b);
     }
-    this.syncDisabled();
-    this.fit();
   }
 
   syncActive() {
     const ed = this.editor;
     const activeId = settings.get('activePresetId');
     this.root.querySelectorAll('.tool-btn').forEach(b => {
-      let on = b.dataset.preset ? ed.tool === 'pen' && b.dataset.preset === activeId : b.dataset.tool === ed.tool;
+      if (b.dataset.kitSize !== undefined || b.dataset.kitColor !== undefined) return; // marcan el hueco elegido, no la herramienta
+    let on = b.dataset.preset ? ed.tool === 'pen' && b.dataset.preset === activeId
+      : b.dataset.kit ? ed.tool === 'pen' && b.dataset.kit === settings.get('kit').tool
+      : b.dataset.tool === ed.tool;
       if (b.dataset.tool === 'instruments') on = ed.tool === 'compass' || ed.instrumentsShown();
       b.classList.toggle('active', !!on);
     });
@@ -201,6 +280,92 @@ export class Toolbar {
       seg.appendChild(b);
     }
     return seg;
+  }
+
+  // ------------------------------------------------------------------
+  // Modo por herramientas: cambiar un grosor, un color o el tipo de línea
+  // ------------------------------------------------------------------
+
+  openKitSizePanel(anchor, i) {
+    const ed = this.editor;
+    const kit = settings.get('kit');
+    const type = kit.tool;
+    const isHl = type === 'highlighter';
+    const cur = kit[type].sizes[i];
+    const visual = w => w * ((BRUSHES[type] || BRUSHES.pen).sizeMul || 1) * Math.SQRT2;
+    const slider = h('input', { type: 'range', min: isHl ? 4 : 0.5, max: isHl ? 48 : 16, step: isHl ? 1 : 0.1, value: cur, 'aria-label': 'Grosor' });
+    const val = h('span.size-value', formatLength(visual(cur)));
+    slider.addEventListener('input', () => {
+      const w = parseFloat(slider.value);
+      val.textContent = formatLength(visual(w));
+      const sizes = settings.get('kit')[type].sizes.slice();
+      sizes[i] = w;
+      ed.updateKit({ sizes, si: i }, type);
+    });
+    const panel = h('div.tool-panel',
+      h('h3', `${BRUSHES[type].name} · grosor ${i + 1}`),
+      h('div.panel-section', h('div.size-row', slider, val)),
+      h('p.panel-hint', 'Se queda guardado para esta herramienta.'));
+    openPopover(anchor, panel, { onClose: () => this.render() });
+  }
+
+  openKitColorPanel(anchor, i) {
+    const ed = this.editor;
+    const type = settings.get('kit').tool;
+    const setColor = c => {
+      const colors = settings.get('kit')[type].colors.slice();
+      colors[i] = c;
+      ed.updateKit({ colors, ci: i }, type);
+    };
+    const panel = h('div.tool-panel', h('h3', `${BRUSHES[type].name} · color ${i + 1}`));
+    const wrap = h('div');
+    const renderColors = () => {
+      clear(wrap);
+      const now = settings.get('kit')[type].colors[i].toLowerCase();
+      const base = type === 'highlighter' ? HIGHLIGHT_COLORS : INK_COLORS;
+      const favs = settings.get('favColors');
+      const grid = h('div.swatches');
+      for (const c of [...base, ...favs.filter(f => !base.includes(f))]) {
+        const sw = h('button.swatch', { type: 'button', title: c, style: { background: c } });
+        if (c.toLowerCase() === now) sw.classList.add('active');
+        sw.addEventListener('click', () => {
+          setColor(c);
+          closePopover();
+        });
+        grid.appendChild(sw);
+      }
+      const addBtn = h('button.swatch.add', { type: 'button', title: 'Color personalizado' }, iconEl('plus'));
+      addBtn.addEventListener('click', () => {
+        if (wrap.querySelector('.color-picker')) return;
+        addBtn.classList.add('active');
+        const picker = createColorPicker({
+          value: settings.get('kit')[type].colors[i],
+          onInput: c => setColor(c),
+          onSave: c => {
+            rememberColor(c);
+            setColor(c);
+            closePopover();
+          },
+          onCancel: () => renderColors()
+        });
+        wrap.appendChild(picker.el);
+      });
+      grid.appendChild(addBtn);
+      wrap.appendChild(grid);
+    };
+    renderColors();
+    panel.append(h('div.panel-section', wrap), h('p.panel-hint', 'Se queda guardado para esta herramienta.'));
+    openPopover(anchor, panel, { onClose: () => this.render() });
+  }
+
+  openKitLinePanel(anchor) {
+    const ed = this.editor;
+    const kit = settings.get('kit');
+    const type = kit.tool;
+    const panel = h('div.tool-panel',
+      h('h3', BRUSHES[type].name),
+      h('div.panel-section', h('div.panel-label', 'Línea'), this.dashSeg(kit[type].ds, ds => ed.updateKit({ ds: ds === 'solid' ? undefined : ds }, type))));
+    openPopover(anchor, panel, { onClose: () => this.render() });
   }
 
   addPreset(anchor) {

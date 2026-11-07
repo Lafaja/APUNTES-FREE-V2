@@ -3,7 +3,7 @@
 // mantener pulsado sin moverse, doble toque con el dedo, botón lateral del lápiz o botón flotante.
 // Se elige arrastrando hasta la opción y soltando, o soltando primero y tocando la opción.
 
-import { settings, INK_COLORS, timing } from '../core/settings.js';
+import { settings, INK_COLORS, timing, KIT_TYPES, layoutItems } from '../core/settings.js';
 import { h, $ } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
 import { BRUSHES } from '../render/ink.js';
@@ -13,7 +13,8 @@ const DOUBLE_TAP_PX = 40;
 const TOOLS = [
   { id: 'eraser', icon: 'eraser', name: 'Borrador' },
   { id: 'lasso', icon: 'lasso', name: 'Lazo' },
-  { id: 'shape', icon: 'shapes', name: 'Formas' }
+  { id: 'shape', icon: 'shapes', name: 'Formas' },
+  { id: 'image', icon: 'image', name: 'Imagen' }
 ];
 
 export class RadialMenu {
@@ -125,31 +126,54 @@ export class RadialMenu {
 
   // ------------------------------------------------------------------
 
-  items() {
+  /**
+   * Opciones del menú en el orden elegido en Ajustes → Personalizar.
+   * Anillo interior: herramientas de escritura (o bolis guardados) y borrador, lazo, formas, imagen.
+   * Anillo exterior: colores (y, en el modo por herramientas, los 3 grosores).
+   */
+  menuItems() {
     const ed = this.editor;
-    const activeId = settings.get('activePresetId');
-    const tools = settings.get('presets').slice(0, 9).map(p => ({
-      kind: 'preset',
-      id: p.id,
-      icon: BRUSH_ICONS[p.t] || 'pen',
-      color: p.c,
-      name: BRUSHES[p.t]?.name || 'Pluma',
-      active: ed.tool === 'pen' && p.id === activeId
-    }));
-    for (const t of TOOLS) tools.push({ kind: 'tool', id: t.id, icon: t.icon, name: t.name, active: ed.tool === t.id });
-    const fav = settings.get('favColors');
-    const colors = [];
-    for (const c of [...fav, ...INK_COLORS]) {
-      const lc = c.toLowerCase();
-      if (lc !== '#ffffff' && !colors.includes(lc)) colors.push(lc);
+    const kitMode = ed.kitMode();
+    const kit = settings.get('kit');
+    const k = kit[kit.tool];
+    const writing = ed.tool === 'pen';
+    const tools = [];
+    const outer = [];
+    for (const id of layoutItems('radial')) {
+      if (id === 'presets') {
+        const activeId = settings.get('activePresetId');
+        for (const p of settings.get('presets').slice(0, 9)) {
+          tools.push({ kind: 'preset', id: p.id, icon: BRUSH_ICONS[p.t] || 'pen', color: p.c, name: BRUSHES[p.t]?.name || 'Pluma', active: writing && p.id === activeId });
+        }
+      } else if (KIT_TYPES.includes(id)) {
+        tools.push({ kind: 'kit', id, icon: BRUSH_ICONS[id], color: kit[id].colors[kit[id].ci], name: BRUSHES[id].name, active: writing && id === kit.tool });
+      } else if (id === 'sizes') {
+        k.sizes.forEach((w, i) => outer.push({ kind: 'size', i, w, hl: kit.tool === 'highlighter', active: i === k.si }));
+      } else if (id === 'colors') {
+        if (kitMode) {
+          k.colors.forEach((c, i) => outer.push({ kind: 'color', i, color: c, active: i === k.ci }));
+        } else {
+          const cur = (ed.activePreset()?.c || '').toLowerCase();
+          const list = [];
+          for (const c of [...settings.get('favColors'), ...INK_COLORS]) {
+            const lc = c.toLowerCase();
+            if (lc !== '#ffffff' && !list.includes(lc)) list.push(lc);
+          }
+          for (const c of list.slice(0, 16)) outer.push({ kind: 'color', color: c, active: c === cur });
+        }
+      } else {
+        const t = TOOLS.find(x => x.id === id);
+        if (t) tools.push({ kind: 'tool', id: t.id, icon: t.icon, name: t.name, active: ed.tool === t.id });
+      }
     }
-    return { tools, colors: colors.slice(0, 16) };
+    return { tools, outer };
   }
 
   open(x, y, pointerId) {
     this.close();
-    const { tools, colors } = this.items();
-    const cur = (this.editor.activePreset()?.c || '').toLowerCase();
+    const ed = this.editor;
+    const kitMode = ed.kitMode();
+    const { tools, outer } = this.menuItems();
     const innerR = 74;
     const outerR = 128;
     const wheelR = 150;
@@ -175,16 +199,25 @@ export class RadialMenu {
         b.appendChild(h('span.radial-badge', { style: { backgroundColor: t.color } }));
       }
       if (t.active) b.classList.add('active');
-      b._choose = () => (t.kind === 'preset' ? this.editor.selectPreset(t.id) : this.editor.setTool(t.id));
+      b._choose = () => (t.kind === 'preset' ? ed.selectPreset(t.id) : t.kind === 'kit' ? ed.selectKitTool(t.id) : t.id === 'image' ? ed.insertImage() : ed.setTool(t.id));
       place(b, -Math.PI / 2 + (i / tools.length) * Math.PI * 2, innerR);
       wheel.appendChild(b);
     });
-    colors.forEach((c, i) => {
-      const b = h('button.radial-item.radial-color', { type: 'button', 'aria-label': `Color ${c}` });
-      b.appendChild(h('span.radial-dot', { style: { backgroundColor: c } }));
-      if (c === cur) b.classList.add('active');
-      b._choose = () => this.chooseColor(c);
-      place(b, -Math.PI / 2 + (i / colors.length) * Math.PI * 2, outerR);
+    outer.forEach((o, i) => {
+      let b;
+      if (o.kind === 'size') {
+        // Grosor: un punto (o una barra, en el subrayador) del tamaño aproximado del trazo.
+        const d = o.hl ? Math.max(4, Math.min(14, o.w * 0.5)) : Math.max(4, Math.min(18, o.w * 2.6));
+        b = h('button.radial-item.radial-color.radial-size', { type: 'button', 'aria-label': `Grosor ${o.i + 1}` },
+          h('span.radial-size-dot', { style: { width: `${o.hl ? d * 1.8 : d}px`, height: `${d}px`, borderRadius: o.hl ? '3px' : '99px' } }));
+        b._choose = () => ed.selectKitSize(o.i);
+      } else {
+        b = h('button.radial-item.radial-color', { type: 'button', 'aria-label': `Color ${o.color}` });
+        b.appendChild(h('span.radial-dot', { style: { backgroundColor: o.color } }));
+        b._choose = kitMode ? () => ed.selectKitColor(o.i) : () => this.chooseColor(o.color);
+      }
+      if (o.active) b.classList.add('active');
+      place(b, -Math.PI / 2 + (i / outer.length) * Math.PI * 2, outerR);
       wheel.appendChild(b);
     });
     const center = h('button.radial-item.radial-center', { type: 'button', 'aria-label': 'Cerrar', style: { left: `${wheelR}px`, top: `${wheelR}px` } }, '✕');

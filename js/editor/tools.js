@@ -450,7 +450,8 @@ export const SHAPES = [
   { id: 'line', name: 'Línea', icon: 'line' },
   { id: 'arrow', name: 'Flecha', icon: 'arrow' },
   { id: 'rect', name: 'Rectángulo', icon: 'rect' },
-  { id: 'ellipse', name: 'Elipse', icon: 'ellipse' },
+  { id: 'circle', name: 'Círculo (desde el centro)', icon: 'circle' },
+  { id: 'ellipse', name: 'Elipse (desde el centro)', icon: 'ellipse' },
   { id: 'triangle', name: 'Triángulo', icon: 'triangle' },
   { id: 'star', name: 'Estrella', icon: 'star' },
   { id: 'hexagon', name: 'Hexágono', icon: 'hexagon' }
@@ -473,11 +474,16 @@ export function shapePoints(type, a, b) {
   } else if (type === 'rect') {
     out.push(minX, minY, 0.5, maxX, minY, 0.5, maxX, maxY, 0.5, minX, maxY, 0.5);
     closed = true;
-  } else if (type === 'ellipse') {
-    const n = Math.max(24, Math.min(96, Math.round((w + h) / 6)));
+  } else if (type === 'circle' || type === 'ellipse') {
+    // El primer punto es el centro. Círculo: siempre perfecto (radio = distancia al lápiz).
+    // Elipse: cada radio sale de la distancia horizontal y vertical al lápiz.
+    const r = Math.hypot(b.x - a.x, b.y - a.y);
+    const rx = type === 'circle' ? r : Math.abs(b.x - a.x);
+    const ry = type === 'circle' ? r : Math.abs(b.y - a.y);
+    const n = Math.max(32, Math.min(160, Math.round((rx + ry) / 3)));
     for (let i = 0; i < n; i++) {
       const t = (i / n) * Math.PI * 2;
-      out.push(cx + (w / 2) * Math.cos(t), cy + (h / 2) * Math.sin(t), 0.5);
+      out.push(a.x + rx * Math.cos(t), a.y + ry * Math.sin(t), 0.5);
     }
     closed = true;
   } else if (type === 'triangle') {
@@ -537,7 +543,17 @@ export class ShapeTool {
     const s = this.build();
     const { viewer, pageIndex } = this.ctx;
     viewer.clearOverlay();
-    if (s) withPageClip(viewer, pageIndex, c => drawStroke(c, s));
+    const type = settings.get('shape').type;
+    if (s) withPageClip(viewer, pageIndex, c => {
+      drawStroke(c, s);
+      // Círculo y elipse: se marca el centro mientras se dibuja.
+      if (type === 'circle' || type === 'ellipse') {
+        c.beginPath();
+        c.arc(this.a.x, this.a.y, 3 / viewer.zoom, 0, Math.PI * 2);
+        c.fillStyle = s.c;
+        c.fill();
+      }
+    });
   }
 
   end(last) {

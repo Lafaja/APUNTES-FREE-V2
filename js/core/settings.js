@@ -27,6 +27,60 @@ export const DEFAULT_PRESETS = [
   { id: 'hl-yellow', t: 'highlighter', c: '#facc15', w: 16 }
 ];
 
+// Modo «por herramientas»: cada herramienta de escritura con 3 grosores y 5 colores propios, editables.
+export const KIT_TYPES = ['pen', 'fountain', 'brush', 'pencil', 'highlighter'];
+export const KIT_SIZES = 3;
+export const KIT_COLORS = 5;
+const DEFAULT_KIT = {
+  tool: 'pen',
+  pen: { sizes: [1.2, 2.2, 3.5], colors: ['#0f172a', '#2563eb', '#dc2626', '#16a34a', '#9333ea'], si: 1, ci: 0 },
+  fountain: { sizes: [1.4, 2, 3], colors: ['#0f172a', '#1d4ed8', '#dc2626', '#0d9488', '#92400e'], si: 1, ci: 1 },
+  brush: { sizes: [2, 4, 7], colors: ['#0f172a', '#dc2626', '#2563eb', '#16a34a', '#f97316'], si: 1, ci: 0 },
+  pencil: { sizes: [1.2, 2, 3.2], colors: ['#334155', '#0f172a', '#64748b', '#dc2626', '#2563eb'], si: 1, ci: 0 },
+  highlighter: { sizes: [10, 16, 24], colors: ['#facc15', '#4ade80', '#60a5fa', '#f472b6', '#fb923c'], si: 1, ci: 0 }
+};
+
+// Qué sale, y en qué orden, en la barra y en el menú circular de cada modo (Ajustes → Personalizar).
+// 'presets' = los bolis guardados; 'sizes'/'colors' = los 3 grosores y 5 colores del modo por herramientas.
+export const LAYOUT_ITEMS = {
+  toolbar: {
+    presets: ['presets', 'eraser', 'lasso', 'shape', 'image', 'instruments'],
+    kit: [...KIT_TYPES, 'sizes', 'colors', 'eraser', 'lasso', 'shape', 'image', 'instruments']
+  },
+  radial: {
+    presets: ['presets', 'eraser', 'lasso', 'shape', 'image', 'colors'],
+    kit: [...KIT_TYPES, 'eraser', 'lasso', 'shape', 'image', 'colors', 'sizes']
+  }
+};
+const LAYOUT_OFF = { radial: ['image'] }; // ocultos de serie
+
+export function defaultLayout(place, mode) {
+  return LAYOUT_ITEMS[place][mode].map(id => ({ id, on: !(LAYOUT_OFF[place] || []).includes(id) }));
+}
+
+function sanitizeLayouts(l) {
+  const out = {};
+  for (const place of Object.keys(LAYOUT_ITEMS)) {
+    out[place] = {};
+    for (const mode of Object.keys(LAYOUT_ITEMS[place])) {
+      const known = LAYOUT_ITEMS[place][mode];
+      const saved = l && l[place] && Array.isArray(l[place][mode]) ? l[place][mode] : [];
+      const list = [];
+      for (const it of saved) {
+        if (it && known.includes(it.id) && !list.some(x => x.id === it.id)) list.push({ id: it.id, on: it.on !== false });
+      }
+      for (const d of defaultLayout(place, mode)) if (!list.some(x => x.id === d.id)) list.push(d);
+      out[place][mode] = list;
+    }
+  }
+  return out;
+}
+
+/** Elementos visibles, en orden, de la barra ('toolbar') o del menú circular ('radial') del modo actual. */
+export function layoutItems(place, mode = settings.get('toolbarMode')) {
+  return (settings.get('layouts')[place][mode] || []).filter(x => x.on).map(x => x.id);
+}
+
 // Tiempos y tolerancias que el usuario puede ajustar (Ajustes → Tiempos). min/max/step para el deslizador.
 export const TIMINGS = {
   shapeSnapDelay: { def: 550, min: 150, max: 2000, step: 50, unit: 'ms' }, // lápiz quieto al final del trazo → forma perfecta
@@ -51,6 +105,9 @@ const DEFAULTS = {
   penDetected: false,
   presets: DEFAULT_PRESETS,
   activePresetId: 'pen-black',
+  toolbarMode: 'presets', // barra de dibujo: 'presets' (bolis guardados) | 'kit' (por herramientas)
+  kit: DEFAULT_KIT,
+  layouts: null, // se rellena con los valores de serie en sanitize()
   favColors: [],
   eraser: { mode: 'stroke', size: 18 },
   shape: { type: 'rect', fill: 'none', w: 2.5, color: '#0f172a', ds: 'solid' },
@@ -130,6 +187,9 @@ class Settings extends Emitter {
         ...(DASH_IDS.includes(p.ds) && p.ds !== 'solid' ? { ds: p.ds } : {})
       }));
     if (!d.presets.some(p => p.id === d.activePresetId)) d.activePresetId = d.presets[0].id;
+    if (!['presets', 'kit'].includes(d.toolbarMode)) d.toolbarMode = 'presets';
+    d.kit = sanitizeKit(d.kit);
+    d.layouts = sanitizeLayouts(d.layouts);
     if (!Array.isArray(d.favColors)) d.favColors = [];
     d.favColors = d.favColors.filter(c => /^#[0-9a-f]{6}$/i.test(c)).slice(0, 24);
     if (!['auto', 'light', 'dark'].includes(d.theme)) d.theme = 'auto';
@@ -280,6 +340,32 @@ class Settings extends Emitter {
     this.saveNow();
     this.emit('change', { key: '*' });
   }
+}
+
+function sanitizeKit(k) {
+  const src = k && typeof k === 'object' ? k : {};
+  const out = { tool: KIT_TYPES.includes(src.tool) ? src.tool : 'pen' };
+  const hex = c => /^#[0-9a-f]{6}$/i.test(c || '');
+  for (const t of KIT_TYPES) {
+    const def = DEFAULT_KIT[t];
+    const cur = src[t] && typeof src[t] === 'object' ? src[t] : {};
+    const sizes = def.sizes.map((w, i) => {
+      const v = Array.isArray(cur.sizes) ? Number(cur.sizes[i]) : NaN;
+      return Number.isFinite(v) && v > 0 ? Math.min(60, v) : w;
+    });
+    const colors = def.colors.map((c, i) => (Array.isArray(cur.colors) && hex(cur.colors[i]) ? cur.colors[i] : c));
+    const idx = (v, n, d) => (Number.isInteger(v) && v >= 0 && v < n ? v : d);
+    out[t] = { sizes, colors, si: idx(cur.si, KIT_SIZES, def.si), ci: idx(cur.ci, KIT_COLORS, def.ci) };
+    if (t !== 'highlighter' && DASH_IDS.includes(cur.ds) && cur.ds !== 'solid') out[t].ds = cur.ds;
+  }
+  return out;
+}
+
+/** Pluma equivalente a la herramienta elegida en el modo «por herramientas» (mismo formato que un boli guardado). */
+export function kitPreset(kit = settings.get('kit')) {
+  const t = kit.tool;
+  const k = kit[t];
+  return { id: `kit-${t}`, t, c: k.colors[k.ci], w: k.sizes[k.si], ...(k.ds ? { ds: k.ds } : {}) };
 }
 
 function structuredCloneSafe(o) {

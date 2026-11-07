@@ -54,6 +54,15 @@ function timingRow(key, title, sub) {
   return wrap;
 }
 
+function customizeBtn() {
+  const b = h('button.btn.btn-sm.btn-outline', { type: 'button' }, iconEl('settings'), 'Personalizar…');
+  b.addEventListener('click', async () => {
+    const { openCustomizeDialog } = await import('./customize.js');
+    openCustomizeDialog();
+  });
+  return b;
+}
+
 export async function openSettingsDialog(app, section) {
   const body = h('div');
 
@@ -99,6 +108,7 @@ export async function openSettingsDialog(app, section) {
     row('Añadir página al escribir al final', 'En apuntes, crea una hoja nueva cuando escribes en la parte baja de la última.', switchCtl(settings.get('autoAddPages'), v => settings.set('autoAddPages', v))),
     row('Botones de zoom', 'Muestra − 100 % + en la esquina del documento.', switchCtl(settings.get('showZoomControls'), v => settings.set('showZoomControls', v))),
     row('Mantener pantalla completa', 'Al volver de otra app (Google, la cámara…) la pantalla completa vuelve sola con el primer toque. Se activa al pulsar el botón de pantalla completa y se quita al pulsarlo otra vez.', switchCtl(settings.get('keepFullscreen'), v => settings.set('keepFullscreen', v))),
+    row('Barra de dibujo y menú circular', 'Elige el método («Bolis guardados» o «Por herramientas») y qué sale, y en qué orden, en la barra y en el menú circular.', customizeBtn()),
     row('Pestañas de documentos', 'Cada documento que abres queda como pestaña encima de la barra para cambiar entre ellos. «+» abre otro; la «x» cierra la pestaña (no borra nada).', null),
     h('div', { style: { paddingBottom: '12px' } }, segmented([
       { id: 'always', label: 'Siempre' }, { id: 'auto', label: 'Con 2 o más' }, { id: 'off', label: 'Ocultas' }

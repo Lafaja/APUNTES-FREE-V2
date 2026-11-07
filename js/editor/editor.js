@@ -3,7 +3,7 @@
 
 import { openSession, releaseSession, flushAllSessions } from '../model/session.js';
 import * as repo from '../core/repo.js';
-import { settings, fingerDraws } from '../core/settings.js';
+import { settings, fingerDraws, kitPreset, KIT_TYPES } from '../core/settings.js';
 import { uid, debounce, nextFrame } from '../core/util.js';
 import { normalizeBg, pageSizeFor } from '../model/paper.js';
 import { DocumentViewer } from './viewer.js';
@@ -709,8 +709,37 @@ export class Editor {
   // =====================================================================
 
   activePreset() {
+    if (this.kitMode()) return kitPreset();
     const presets = settings.get('presets');
     return presets.find(p => p.id === settings.get('activePresetId')) || presets[0];
+  }
+
+  /** ¿Barra «por herramientas» (en vez de bolis guardados)? */
+  kitMode() {
+    return settings.get('toolbarMode') === 'kit';
+  }
+
+  /** Modo por herramientas: cambia la herramienta, el grosor o el color y vuelve a escribir con ella. */
+  updateKit(patch, type = settings.get('kit').tool) {
+    const kit = settings.get('kit');
+    const next = { ...kit, [type]: { ...kit[type], ...(patch || {}) } };
+    settings.set('kit', next);
+  }
+
+  selectKitTool(type) {
+    const kit = settings.get('kit');
+    if (kit.tool !== type) settings.set('kit', { ...kit, tool: type });
+    this.setTool('pen');
+  }
+
+  selectKitSize(i) {
+    this.updateKit({ si: i });
+    this.setTool('pen');
+  }
+
+  selectKitColor(i) {
+    this.updateKit({ ci: i });
+    this.setTool('pen');
   }
 
   favColors() {
@@ -1131,8 +1160,13 @@ export class Editor {
         else if (k === 'l') this.setTool('lasso');
         else if (k === 'p') this.setTool('pen');
         else if (/^[1-9]$/.test(k)) {
-          const p = settings.get('presets')[parseInt(k, 10) - 1];
-          if (p) this.selectPreset(p.id);
+          const n = parseInt(k, 10) - 1;
+          if (this.kitMode()) {
+            if (KIT_TYPES[n]) this.selectKitTool(KIT_TYPES[n]);
+          } else {
+            const p = settings.get('presets')[n];
+            if (p) this.selectPreset(p.id);
+          }
         }
       }
     });

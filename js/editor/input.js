@@ -13,6 +13,11 @@ import { settings, fingerDraws, timing } from '../core/settings.js';
 import { pdfQueue } from '../render/pdf.js';
 
 const TAP_MAX_MOVE = 14;
+// Rechazo de palma: contacto más ancho que esto (px) = palma; lápiz suspendido = dedos ignorados un
+// momento; y si la palma movió la hoja justo antes de apoyar el lápiz, se deshace.
+const PALM_SIZE = 45;
+const PEN_HOVER_MS = 350;
+const PALM_UNDO_MS = 1500;
 
 export class InputController {
   constructor(viewer, editor) {
@@ -86,8 +91,12 @@ export class InputController {
         settings.set('penDetected', true);
         this.editor.onPenDetected();
       }
-      // El lápiz manda: se cancela cualquier gesto de dedos en curso.
+      // El lápiz manda: se cancela cualquier gesto de dedos en curso. Si ese gesto lo empezó la palma
+      // justo antes de apoyar el lápiz (sigue apoyada), se deshace lo que movió o hizo zoom.
+      const palmView = this.touches.size > 0 && this.gestureStart && performance.now() - this.gestureStart.t < PALM_UNDO_MS ? this.gestureStart.view : null;
       this.cancelTouches();
+      if (palmView) this.viewer.restoreView(palmView);
+      this.gestureStart = null;
       this.penUntil = Date.now() + timing('palmGuardMs');
       if (this.drawPointer) return;
       const eraserEnd = e.button === 5 || (e.buttons & 32) === 32;
@@ -126,6 +135,9 @@ export class InputController {
     // ---- Táctil ----
     if (Date.now() < this.penUntil || (this.drawPointer && this.drawPointer.type === 'pen')) return; // palma
     e.preventDefault();
+    // Con lápiz, un contacto grande es la palma, no un dedo: no desplaza ni hace zoom.
+    if (settings.get('penDetected') && Math.max(e.width || 0, e.height || 0) > PALM_SIZE) return;
+    if (this.touches.size === 0) this.gestureStart = { t: performance.now(), view: this.viewer.viewState() };
     // Dedo sobre una regla, escuadra…: se mueve con un dedo y se gira con un segundo dedo.
     if (this.mode === 'guide') {
       this.viewer.guides.gestureAdd(e.pointerId, e.clientX, e.clientY);
@@ -203,6 +215,8 @@ export class InputController {
       return;
     }
     if (type !== 'touch') {
+      // Lápiz suspendido sobre la pantalla: la mano ya está apoyando, se ignoran los dedos.
+      if (type === 'pen') this.penUntil = Math.max(this.penUntil || 0, Date.now() + PEN_HOVER_MS);
       this.editor.onHover(this.viewer, e);
       return;
     }

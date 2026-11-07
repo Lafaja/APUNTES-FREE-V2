@@ -742,6 +742,11 @@ export class Editor {
     this.setTool('pen');
   }
 
+  selectKitDash(ds) {
+    this.updateKit({ ds: ds === 'solid' ? undefined : ds });
+    this.setTool('pen');
+  }
+
   favColors() {
     return settings.get('favColors');
   }

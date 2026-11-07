@@ -6,7 +6,7 @@
 import { settings, INK_COLORS, timing, KIT_TYPES, layoutItems } from '../core/settings.js';
 import { h, $ } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
-import { BRUSHES } from '../render/ink.js';
+import { BRUSHES, DASHES, dashPattern } from '../render/ink.js';
 
 const BRUSH_ICONS = { pen: 'pen', fountain: 'fountain', brush: 'brush', pencil: 'pencil', highlighter: 'highlighter' };
 const DOUBLE_TAP_PX = 40;
@@ -145,6 +145,11 @@ export class RadialMenu {
         for (const p of settings.get('presets').slice(0, 9)) {
           tools.push({ kind: 'preset', id: p.id, icon: BRUSH_ICONS[p.t] || 'pen', color: p.c, name: BRUSHES[p.t]?.name || 'Pluma', active: writing && p.id === activeId });
         }
+      } else if (id === 'active') {
+        const t = kit.tool;
+        tools.push({ kind: 'kit', id: t, icon: BRUSH_ICONS[t], color: kit[t].colors[kit[t].ci], name: `${BRUSHES[t].name} (activo)`, active: writing });
+      } else if (id === 'dashes') {
+        if (kit.tool !== 'highlighter') for (const d of DASHES) outer.push({ kind: 'dash', ds: d.id, name: d.name, active: (k.ds || 'solid') === d.id });
       } else if (KIT_TYPES.includes(id)) {
         tools.push({ kind: 'kit', id, icon: BRUSH_ICONS[id], color: kit[id].colors[kit[id].ci], name: BRUSHES[id].name, active: writing && id === kit.tool });
       } else if (id === 'sizes') {
@@ -205,7 +210,13 @@ export class RadialMenu {
     });
     outer.forEach((o, i) => {
       let b;
-      if (o.kind === 'size') {
+      if (o.kind === 'dash') {
+        // Tipo de línea: un trazo corto con su patrón.
+        const pat = dashPattern(o.ds, 2.6);
+        b = h('button.radial-item.radial-color.radial-size.radial-dash', { type: 'button', 'aria-label': `Línea: ${o.name}`, title: o.name });
+        b.innerHTML = `<svg viewBox="0 0 22 10" width="22" height="10" aria-hidden="true"><path d="M3 5H19" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"${pat ? ` stroke-dasharray="${pat.join(' ')}"` : ''}/></svg>`;
+        b._choose = () => ed.selectKitDash(o.ds);
+      } else if (o.kind === 'size') {
         // Grosor: un punto (o una barra, en el subrayador) del tamaño aproximado del trazo.
         const d = o.hl ? Math.max(4, Math.min(14, o.w * 0.5)) : Math.max(4, Math.min(18, o.w * 2.6));
         b = h('button.radial-item.radial-color.radial-size', { type: 'button', 'aria-label': `Grosor ${o.i + 1}` },

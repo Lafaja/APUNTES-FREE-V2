@@ -49,13 +49,16 @@ export const LAYOUT_ITEMS = {
   },
   radial: {
     presets: ['presets', 'eraser', 'lasso', 'shape', 'image', 'colors'],
-    kit: [...KIT_TYPES, 'eraser', 'lasso', 'shape', 'image', 'colors', 'sizes']
+    // 'active' = la herramienta de escritura que tengas (bolígrafo, lápiz, subrayador…); 'dashes' = tipos de línea
+    kit: ['active', 'eraser', 'lasso', 'shape', ...KIT_TYPES, 'image', 'colors', 'sizes', 'dashes']
   }
 };
-const LAYOUT_OFF = { radial: ['image'] }; // ocultos de serie
+// Ocultos de serie (se pueden activar en Ajustes → Barra y menú → Personalizar).
+const LAYOUT_OFF = { 'radial.presets': ['image'], 'radial.kit': [...KIT_TYPES, 'image'] };
 
 export function defaultLayout(place, mode) {
-  return LAYOUT_ITEMS[place][mode].map(id => ({ id, on: !(LAYOUT_OFF[place] || []).includes(id) }));
+  const off = LAYOUT_OFF[`${place}.${mode}`] || [];
+  return LAYOUT_ITEMS[place][mode].map(id => ({ id, on: !off.includes(id) }));
 }
 
 function sanitizeLayouts(l) {
@@ -64,7 +67,9 @@ function sanitizeLayouts(l) {
     out[place] = {};
     for (const mode of Object.keys(LAYOUT_ITEMS[place])) {
       const known = LAYOUT_ITEMS[place][mode];
-      const saved = l && l[place] && Array.isArray(l[place][mode]) ? l[place][mode] : [];
+      let saved = l && l[place] && Array.isArray(l[place][mode]) ? l[place][mode] : [];
+      // Menú circular del modo por herramientas de antes de 2.19 (sin «herramienta activa»): al nuevo de serie.
+      if (place === 'radial' && mode === 'kit' && !saved.some(x => x && x.id === 'active')) saved = [];
       const list = [];
       for (const it of saved) {
         if (it && known.includes(it.id) && !list.some(x => x.id === it.id)) list.push({ id: it.id, on: it.on !== false });

@@ -9,6 +9,8 @@ import { toast } from '../ui/toast.js';
 
 const INFO = {
   presets: { name: 'Bolis guardados', icon: 'pen', sub: 'Todos tus bolis, en el orden de su panel' },
+  active: { name: 'Herramienta activa', icon: 'pen', sub: 'La que tengas: bolígrafo, pluma, pincel, lápiz o subrayador' },
+  dashes: { name: 'Tipos de línea', icon: 'line', sub: 'Continua, guiones, puntos o guion y punto' },
   pen: { name: BRUSHES.pen.name, icon: 'pen' },
   fountain: { name: BRUSHES.fountain.name, icon: 'fountain' },
   brush: { name: BRUSHES.brush.name, icon: 'brush' },
@@ -56,7 +58,7 @@ export function openCustomizeDialog() {
     const kit = settings.get('toolbarMode') === 'kit';
     hint.textContent = place === 'toolbar'
       ? 'Activa o quita cada elemento y ordénalo con las flechas. Lo que quites aquí sigue disponible en el menú circular.'
-      : `Anillo interior: herramientas. Anillo exterior: ${kit ? 'colores y grosores' : 'colores'}. Se abre al mantener pulsado (Ajustes → Escritura).`;
+      : `Anillo interior: herramientas. Anillo exterior: ${kit ? 'colores, grosores y tipos de línea' : 'colores'}. Se abre al mantener pulsado (pestaña «Barra y menú»).`;
     items.forEach((it, i) => {
       const info = INFO[it.id] || { name: it.id, icon: 'more' };
       const sw = h('input', { type: 'checkbox', checked: it.on, 'aria-label': `Mostrar ${info.name}` });

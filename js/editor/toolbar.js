@@ -27,6 +27,52 @@ export const TOOL_BUTTONS = [
 ];
 const HL_SIZES = [10, 16, 24, 34];
 
+const MM_PER_PX = 25.4 / 96;
+const sizeFactor = t => ((BRUSHES[t] || BRUSHES.pen).sizeMul || 1) * Math.SQRT2; // grosor visible = w × esto
+/** Escala del grosor en mm de trazo visible (el subrayador conserva su escala propia, mucho más gruesa). */
+function sizeRange(t) {
+  if (t === 'highlighter') return null;
+  return { min: 0.2, max: t === 'brush' ? 5 : 1.5, step: 0.1 };
+}
+
+/**
+ * Control de grosor: − deslizador + y el valor. En plumas va en pasos de 0,10 mm (de 0,20 a 1,50 mm;
+ * el pincel hasta 5 mm) para que sea fácil acertar la medida. `onChange(w)` recibe el grosor interno.
+ */
+function sizeControl(t, w, onChange) {
+  const r = sizeRange(t);
+  const toVal = x => (r ? Math.round((x * sizeFactor(t) * MM_PER_PX) / r.step) * r.step : Math.round(x));
+  const toW = v => (r ? v / (sizeFactor(t) * MM_PER_PX) : v);
+  const min = r ? r.min : 4;
+  const max = r ? r.max : 48;
+  const step = r ? r.step : 1;
+  const clampV = v => Math.min(max, Math.max(min, Math.round(v / step) * step));
+  let v = clampV(toVal(w));
+  const slider = h('input.size-slider', { type: 'range', min, max, step, value: v, 'aria-label': 'Grosor' });
+  const val = h('span.size-value');
+  const show = () => {
+    val.textContent = formatLength(toW(v) * sizeFactor(t));
+  };
+  const apply = nv => {
+    v = clampV(nv);
+    slider.value = v;
+    show();
+    onChange(toW(v));
+  };
+  slider.addEventListener('input', () => apply(parseFloat(slider.value)));
+  const btn = (dir, label) => {
+    const b = h('button.btn.btn-icon.btn-sm.size-step', { type: 'button', title: dir < 0 ? 'Más fino' : 'Más grueso', 'aria-label': dir < 0 ? 'Más fino' : 'Más grueso' }, iconEl(label));
+    b.addEventListener('click', () => apply(v + dir * step));
+    return b;
+  };
+  show();
+  return {
+    el: h('div.size-row', btn(-1, 'minus'), slider, btn(1, 'plus'), val),
+    /** Pone un grosor desde fuera (botones de grosores rápidos). */
+    set: nw => apply(toVal(nw))
+  };
+}
+
 export class Toolbar {
   constructor(editor, root) {
     this.editor = editor;
@@ -290,21 +336,15 @@ export class Toolbar {
     const ed = this.editor;
     const kit = settings.get('kit');
     const type = kit.tool;
-    const isHl = type === 'highlighter';
     const cur = kit[type].sizes[i];
-    const visual = w => w * ((BRUSHES[type] || BRUSHES.pen).sizeMul || 1) * Math.SQRT2;
-    const slider = h('input', { type: 'range', min: isHl ? 4 : 0.5, max: isHl ? 48 : 16, step: isHl ? 1 : 0.1, value: cur, 'aria-label': 'Grosor' });
-    const val = h('span.size-value', formatLength(visual(cur)));
-    slider.addEventListener('input', () => {
-      const w = parseFloat(slider.value);
-      val.textContent = formatLength(visual(w));
+    const ctl = sizeControl(type, cur, w => {
       const sizes = settings.get('kit')[type].sizes.slice();
       sizes[i] = w;
       ed.updateKit({ sizes, si: i }, type);
     });
     const panel = h('div.tool-panel',
       h('h3', `${BRUSHES[type].name} · grosor ${i + 1}`),
-      h('div.panel-section', h('div.size-row', slider, val)),
+      h('div.panel-section', ctl.el),
       h('p.panel-hint', 'Se queda guardado para esta herramienta.'));
     openPopover(anchor, panel, { onClose: () => this.render() });
   }
@@ -498,13 +538,7 @@ export class Toolbar {
       const cur = getP();
       const isHl = cur.t === 'highlighter';
       const presetsS = isHl ? HL_SIZES : PEN_SIZES;
-      const slider = h('input', { type: 'range', min: isHl ? 4 : 0.5, max: isHl ? 48 : 16, step: isHl ? 1 : 0.1, value: cur.w });
-      // Grosor real del trazo tal y como se ve (perfect-freehand dibuja ~√2 × tamaño × multiplicador).
-      const visual = w => w * ((BRUSHES[getP().t] || BRUSHES.pen).sizeMul || 1) * Math.SQRT2;
-      const val = h('span.size-value', formatLength(visual(cur.w)));
-      slider.addEventListener('input', () => {
-        const w = parseFloat(slider.value);
-        val.textContent = formatLength(visual(w));
+      const ctl = sizeControl(cur.t, cur.w, w => {
         this.updatePreset(id, { w });
         row.querySelectorAll('.size-preset').forEach(b => b.classList.toggle('active', Math.abs(parseFloat(b.dataset.w) - w) < 0.05));
         drawPreview();
@@ -514,13 +548,10 @@ export class Toolbar {
         const dot = Math.max(2, Math.min(26, isHl ? w * 0.7 : w * 2.4));
         const b = h('button.size-preset', { type: 'button', dataset: { w: String(w) } }, h('i', { style: { width: isHl ? `${dot * 1.8}px` : `${dot}px`, height: `${dot}px`, borderRadius: isHl ? '3px' : '99px' } }));
         if (Math.abs(cur.w - w) < 0.05) b.classList.add('active');
-        b.addEventListener('click', () => {
-          slider.value = w;
-          slider.dispatchEvent(new Event('input'));
-        });
+        b.addEventListener('click', () => ctl.set(w));
         row.appendChild(b);
       }
-      sizeWrap.append(h('div.size-row', slider, val), row);
+      sizeWrap.append(ctl.el, row);
     };
 
     renderColors();

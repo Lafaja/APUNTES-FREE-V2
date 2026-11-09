@@ -446,10 +446,14 @@ export class EraserTool {
 // Formas geométricas
 // ---------------------------------------------------------------------------
 
+/** Rectángulo con sombra: cuántas veces más gruesas son las aristas derecha e inferior. */
+const HEAVY_EDGE = 2.5;
+
 export const SHAPES = [
   { id: 'line', name: 'Línea', icon: 'line' },
   { id: 'arrow', name: 'Flecha', icon: 'arrow' },
   { id: 'rect', name: 'Rectángulo', icon: 'rect' },
+  { id: 'rect-heavy', name: 'Rectángulo con sombra (desde el centro)', icon: 'rectHeavy' },
   { id: 'circle', name: 'Círculo (desde el centro)', icon: 'circle' },
   { id: 'ellipse', name: 'Elipse (desde el centro)', icon: 'ellipse' },
   { id: 'triangle', name: 'Triángulo', icon: 'triangle' },
@@ -473,6 +477,12 @@ export function shapePoints(type, a, b) {
     out.push(a.x, a.y, 0.5, b.x, b.y, 0.5);
   } else if (type === 'rect') {
     out.push(minX, minY, 0.5, maxX, minY, 0.5, maxX, maxY, 0.5, minX, maxY, 0.5);
+    closed = true;
+  } else if (type === 'rect-heavy') {
+    // Desde el centro: el primer punto es el centro y el lápiz marca una esquina.
+    const hw = Math.abs(b.x - a.x);
+    const hh = Math.abs(b.y - a.y);
+    out.push(a.x - hw, a.y - hh, 0.5, a.x + hw, a.y - hh, 0.5, a.x + hw, a.y + hh, 0.5, a.x - hw, a.y + hh, 0.5);
     closed = true;
   } else if (type === 'circle' || type === 'ellipse') {
     // El primer punto es el centro. Círculo: siempre perfecto (radio = distancia al lápiz).
@@ -522,35 +532,48 @@ export class ShapeTool {
     this.b = { x: ctx.x, y: ctx.y };
   }
 
+  /** Devuelve los trazos de la forma (el rectángulo con sombra son dos: marco + aristas gruesas). */
   build() {
     const cfg = settings.get('shape');
     const { pts, closed } = shapePoints(cfg.type, this.a, this.b);
-    if (!pts.length) return null;
-    const extra = { sh: cfg.type };
+    if (!pts.length) return [];
+    const extra = { sh: cfg.type === 'rect-heavy' ? 'rect' : cfg.type };
     if (closed) extra.closed = 1;
     if (closed && cfg.fill && cfg.fill !== 'none') {
       extra.fill = cfg.fill;
       extra.fc = cfg.color;
     }
     if (cfg.ds && cfg.ds !== 'solid') extra.ds = cfg.ds;
-    return makeStroke({ t: 'shape', c: cfg.color, w: cfg.w, pts, np: true, extra });
+    const out = [makeStroke({ t: 'shape', c: cfg.color, w: cfg.w, pts, np: true, extra })];
+    if (cfg.type === 'rect-heavy') {
+      // Aristas derecha e inferior HEAVY_EDGE veces más gruesas. Se desplazan hacia fuera
+      // (d) para que el borde interior coincida con el del marco y los extremos no sobresalgan.
+      const W = cfg.w * HEAVY_EDGE;
+      const d = (W - cfg.w) / 2;
+      const x0 = pts[0], y0 = pts[1], x1 = pts[3], y1 = pts[7];
+      const edge = [x1 + d, y0 + d, 0.5, x1 + d, y1 + d, 0.5, x0 + d, y1 + d, 0.5];
+      const ex = { sh: 'line' };
+      if (extra.ds) ex.ds = extra.ds;
+      out.push(makeStroke({ t: 'shape', c: cfg.color, w: W, pts: edge, np: true, extra: ex }));
+    }
+    return out;
   }
 
   move(points) {
     const p = points[points.length - 1];
     if (!p) return;
     this.b = { x: p.x, y: p.y };
-    const s = this.build();
+    const list = this.build();
     const { viewer, pageIndex } = this.ctx;
     viewer.clearOverlay();
     const type = settings.get('shape').type;
-    if (s) withPageClip(viewer, pageIndex, c => {
-      drawStroke(c, s);
-      // Círculo y elipse: se marca el centro mientras se dibuja.
-      if (type === 'circle' || type === 'ellipse') {
+    if (list.length) withPageClip(viewer, pageIndex, c => {
+      for (const s of list) drawStroke(c, s);
+      // Formas desde el centro: se marca el centro mientras se dibuja.
+      if (type === 'circle' || type === 'ellipse' || type === 'rect-heavy') {
         c.beginPath();
         c.arc(this.a.x, this.a.y, 3 / viewer.zoom, 0, Math.PI * 2);
-        c.fillStyle = s.c;
+        c.fillStyle = list[0].c;
         c.fill();
       }
     });
@@ -562,9 +585,9 @@ export class ShapeTool {
     viewer.clearOverlay();
     const size = Math.hypot(this.b.x - this.a.x, this.b.y - this.a.y) * viewer.zoom;
     if (size < 6) return;
-    const s = this.build();
-    if (!s) return;
-    viewer.session.addStrokes(pageId, [s], { origin: viewer, label: 'Forma' });
+    const list = this.build();
+    if (!list.length) return;
+    viewer.session.addStrokes(pageId, list, { origin: viewer, label: 'Forma' });
   }
 
   cancel() {

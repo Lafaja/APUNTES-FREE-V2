@@ -122,6 +122,7 @@ export async function openSettingsDialog(app, section) {
       { id: 'off', label: 'Desactivada' }, { id: 'soft', label: 'Suave' }, { id: 'normal', label: 'Normal' }, { id: 'strong', label: 'Fuerte' }
     ], settings.get('pressure'), v => settings.set('pressure', v))),
     row('Formas perfectas', 'Al terminar un trazo, deja el lápiz quieto un momento (se ajusta en «Gestos y tiempos»): la línea, flecha, círculo, rectángulo o triángulo se vuelve perfecto. Sin levantarlo, en una línea cambias el ángulo (el primer punto queda fijo) y en un círculo el tamaño.', switchCtl(settings.get('shapeSnap'), v => settings.set('shapeSnap', v))),
+    row('Desactivar el botón lateral del lápiz', 'El botón del lápiz no hace nada: ni borra ni abre el menú circular, y el lápiz escribe normal aunque lo tengas pulsado. El extremo borrador (si tu lápiz lo tiene) sigue borrando.', switchCtl(settings.get('penButtonOff'), v => settings.set('penButtonOff', v))),
     row('Añadir página al escribir al final', 'En apuntes, crea una hoja nueva cuando escribes en la parte baja de la última.', switchCtl(settings.get('autoAddPages'), v => settings.set('autoAddPages', v)))
   ));
 

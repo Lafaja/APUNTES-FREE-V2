@@ -8,7 +8,7 @@ import * as repo from './repo.js';
 // Herramientas (método, bolis, grosores, colores, barra y menú) + gestos y tiempos.
 export const TOOL_KEYS = [
   'toolbarMode', 'kit', 'layouts', 'presets', 'activePresetId', 'favColors', 'shape', 'eraser',
-  'radialMenu', 'radialMenuInput', 'radialDoubleTap', 'radialPenButton', 'radialFab', 'twoFingerUndo', 'shapeSnap', 'autoAddPages',
+  'radialMenu', 'radialMenuInput', 'radialDoubleTap', 'radialPenButton', 'penButtonOff','radialFab', 'twoFingerUndo', 'shapeSnap', 'autoAddPages',
   'shapeSnapDelay', 'shapeSnapTolerance', 'radialMenuDelay', 'doubleTapMs', 'gestureTapMs', 'palmGuardMs', 'dragHoldMs'
 ];
 const HISTORY = 'toolHistory';

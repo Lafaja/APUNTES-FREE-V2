@@ -127,6 +127,7 @@ const DEFAULTS = {
   radialMenu: true, // menú circular de herramientas y colores al mantener pulsado sin moverse
   radialDoubleTap: true, // … con doble toque del dedo (cuando el dedo desplaza)
   radialPenButton: false, // … con el botón lateral del lápiz (en vez de borrar)
+  penButtonOff: false, // botón lateral del lápiz desactivado: no borra ni abre nada, el lápiz escribe normal
   radialFab: false, // … con un botón flotante en la esquina del documento
   radialMenuInput: 'both', // 'both' | 'pen' | 'finger'
   radialMenuDelay: 500, // ms

@@ -52,6 +52,8 @@ export class InputController {
     this.el.addEventListener('pointercancel', this._cancel);
     this.el.addEventListener('lostpointercapture', this._cancel);
     this.el.addEventListener('contextmenu', this._ctx);
+    // Nada de la página se arrastra con el sistema (el botón del lápiz lo provocaba con fotos).
+    this.el.addEventListener('dragstart', this._ctx);
     window.addEventListener('keydown', this._keydown);
     window.addEventListener('keyup', this._keyup);
   }
@@ -65,6 +67,7 @@ export class InputController {
     this.el.removeEventListener('pointercancel', this._cancel);
     this.el.removeEventListener('lostpointercapture', this._cancel);
     this.el.removeEventListener('contextmenu', this._ctx);
+    this.el.removeEventListener('dragstart', this._ctx);
     window.removeEventListener('keydown', this._keydown);
     window.removeEventListener('keyup', this._keyup);
   }
@@ -100,7 +103,8 @@ export class InputController {
       this.penUntil = Date.now() + timing('palmGuardMs');
       if (this.drawPointer) return;
       const eraserEnd = e.button === 5 || (e.buttons & 32) === 32;
-      const barrel = !eraserEnd && (e.buttons & 2) === 2;
+      const barrel = !eraserEnd && (e.buttons & 2) === 2 && !settings.get('penButtonOff');
+      if ((e.buttons & 2) === 2) e.preventDefault(); // que el sistema no inicie arrastrar/pegar con el botón
       // Botón lateral: abre el menú circular si así se eligió en Ajustes (si no, borra).
       if (barrel && this.editor.radial.penButton(e)) return;
       const eraser = eraserEnd || barrel;

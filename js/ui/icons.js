@@ -66,7 +66,7 @@ const P = {
   line: '<path d="M5 19 19 5"/>',
   arrow: '<path d="M5 19 19 5M10 5h9v9"/>',
   rect: '<rect x="3.5" y="5.5" width="17" height="13" rx="1"/>',
-  rectHeavy: '<rect x="3.5" y="5.5" width="16" height="12"/><path d="M20.5 7v11.5H5" stroke-width="3"/><circle cx="11.5" cy="11.5" r="1.2" class="ic-ink"/>',
+  rectHeavy: '<rect x="3.5" y="5.5" width="16" height="12"/><path d="M20.5 7v11.5H5" stroke-width="3"/>',
   ellipse: '<ellipse cx="12" cy="12" rx="9.5" ry="6"/><circle cx="12" cy="12" r="1.2" class="ic-ink"/>',
   circle: '<circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="1.2" class="ic-ink"/>',
   triangle: '<path d="M12 4 21 19H3z"/>',

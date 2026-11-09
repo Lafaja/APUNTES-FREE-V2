@@ -447,13 +447,13 @@ export class EraserTool {
 // ---------------------------------------------------------------------------
 
 /** Rectángulo con sombra: cuántas veces más gruesas son las aristas derecha e inferior. */
-const HEAVY_EDGE = 2.5;
+const HEAVY_EDGE = 3;
 
 export const SHAPES = [
   { id: 'line', name: 'Línea', icon: 'line' },
   { id: 'arrow', name: 'Flecha', icon: 'arrow' },
   { id: 'rect', name: 'Rectángulo', icon: 'rect' },
-  { id: 'rect-heavy', name: 'Rectángulo con sombra (desde el centro)', icon: 'rectHeavy' },
+  { id: 'rect-heavy', name: 'Rectángulo con sombra', icon: 'rectHeavy' },
   { id: 'circle', name: 'Círculo (desde el centro)', icon: 'circle' },
   { id: 'ellipse', name: 'Elipse (desde el centro)', icon: 'ellipse' },
   { id: 'triangle', name: 'Triángulo', icon: 'triangle' },
@@ -479,10 +479,8 @@ export function shapePoints(type, a, b) {
     out.push(minX, minY, 0.5, maxX, minY, 0.5, maxX, maxY, 0.5, minX, maxY, 0.5);
     closed = true;
   } else if (type === 'rect-heavy') {
-    // Desde el centro: el primer punto es el centro y el lápiz marca una esquina.
-    const hw = Math.abs(b.x - a.x);
-    const hh = Math.abs(b.y - a.y);
-    out.push(a.x - hw, a.y - hh, 0.5, a.x + hw, a.y - hh, 0.5, a.x + hw, a.y + hh, 0.5, a.x - hw, a.y + hh, 0.5);
+    // De esquina a esquina, como el rectángulo normal.
+    out.push(minX, minY, 0.5, maxX, minY, 0.5, maxX, maxY, 0.5, minX, maxY, 0.5);
     closed = true;
   } else if (type === 'circle' || type === 'ellipse') {
     // El primer punto es el centro. Círculo: siempre perfecto (radio = distancia al lápiz).
@@ -570,7 +568,7 @@ export class ShapeTool {
     if (list.length) withPageClip(viewer, pageIndex, c => {
       for (const s of list) drawStroke(c, s);
       // Formas desde el centro: se marca el centro mientras se dibuja.
-      if (type === 'circle' || type === 'ellipse' || type === 'rect-heavy') {
+      if (type === 'circle' || type === 'ellipse') {
         c.beginPath();
         c.arc(this.a.x, this.a.y, 3 / viewer.zoom, 0, Math.PI * 2);
         c.fillStyle = list[0].c;

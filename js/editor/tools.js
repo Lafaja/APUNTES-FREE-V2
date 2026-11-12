@@ -592,3 +592,78 @@ export class ShapeTool {
     if (this.ctx) this.ctx.viewer.clearOverlay();
   }
 }
+
+// ---------------------------------------------------------------------------
+// Captura: arrastrar un rectángulo sobre la página → imagen en el portapapeles del lazo
+// ---------------------------------------------------------------------------
+
+const CAPTURE_MIN_PX = 12; // lado mínimo en pantalla; menos es un toque sin querer
+const CAPTURE_MAX_SIDE = 2400; // píxeles de la imagen resultante (como al insertar fotos)
+
+export class CaptureTool {
+  constructor(editor) {
+    this.editor = editor;
+    this.modifies = false; // también vale en documentos de solo lectura
+    this.usesPrediction = false;
+  }
+
+  begin(ctx) {
+    this.ctx = ctx;
+    this.a = { x: ctx.x, y: ctx.y };
+    this.b = { x: ctx.x, y: ctx.y };
+    this.draw();
+  }
+
+  move(points) {
+    const p = points[points.length - 1];
+    if (!p) return;
+    this.b = { x: p.x, y: p.y };
+    this.draw();
+  }
+
+  /** Rectángulo marcado, recortado a la página. */
+  rect() {
+    const ref = this.ctx.viewer.session.node.pages[this.ctx.pageIndex];
+    const W = ref ? ref.w : Infinity;
+    const H = ref ? ref.h : Infinity;
+    const x0 = Math.max(0, Math.min(this.a.x, this.b.x));
+    const y0 = Math.max(0, Math.min(this.a.y, this.b.y));
+    const x1 = Math.min(W, Math.max(this.a.x, this.b.x));
+    const y1 = Math.min(H, Math.max(this.a.y, this.b.y));
+    return { x: x0, y: y0, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0) };
+  }
+
+  draw() {
+    const { viewer, pageIndex } = this.ctx;
+    viewer.clearOverlay();
+    const r = this.rect();
+    withPageClip(viewer, pageIndex, ctx => {
+      const z = viewer.zoom;
+      ctx.fillStyle = 'rgba(37,99,235,0.08)';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.lineWidth = 1.6 / z;
+      ctx.setLineDash([6 / z, 5 / z]);
+      ctx.strokeStyle = '#2563eb';
+      ctx.strokeRect(r.x, r.y, r.w, r.h);
+    });
+  }
+
+  end() {
+    const { viewer, pageId } = this.ctx;
+    viewer.clearOverlay();
+    const r = this.rect();
+    if (r.w * viewer.zoom < CAPTURE_MIN_PX || r.h * viewer.zoom < CAPTURE_MIN_PX) {
+      this.editor.toast('Arrastra para marcar la zona que quieres capturar', 'info');
+      return;
+    }
+    // Nitidez como la que se ve en pantalla (mínimo 2×), sin pasar de CAPTURE_MAX_SIDE.
+    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    let scale = Math.min(4, Math.max(2, viewer.zoom * dpr));
+    scale = Math.min(scale, CAPTURE_MAX_SIDE / Math.max(r.w, r.h));
+    this.editor.finishCapture(viewer, pageId, r, scale);
+  }
+
+  cancel() {
+    if (this.ctx) this.ctx.viewer.clearOverlay();
+  }
+}

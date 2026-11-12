@@ -10,14 +10,16 @@ import * as repo from '../core/repo.js';
  * Dibuja una página (registro completo) en un canvas nuevo de `targetWidth` píxeles de ancho.
  * Nunca falla por un PDF o imagen dañados: dibuja lo que pueda.
  */
-export async function renderPageImage(page, targetWidth, { withBackground = true, signal = null, maxPixels = 40e6 } = {}) {
+export async function renderPageImage(page, targetWidth, { withBackground = true, signal = null, maxPixels = 40e6, region = null } = {}) {
   let scale = targetWidth / page.w;
   if (page.w * page.h * scale * scale > maxPixels) scale = Math.sqrt(maxPixels / (page.w * page.h));
+  // `region` {x,y,w,h} en coordenadas de página: solo esa zona (capturas). Sin ella, la página entera.
+  const r = region || { x: 0, y: 0, w: page.w, h: page.h };
   const canvas = document.createElement('canvas');
-  canvas.width = Math.max(1, Math.round(page.w * scale));
-  canvas.height = Math.max(1, Math.round(page.h * scale));
+  canvas.width = Math.max(1, Math.round(r.w * scale));
+  canvas.height = Math.max(1, Math.round(r.h * scale));
   const ctx = canvas.getContext('2d');
-  ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  ctx.setTransform(scale, 0, 0, scale, -r.x * scale, -r.y * scale);
   const full = { x: 0, y: 0, w: page.w, h: page.h };
   if (withBackground) drawPaper(ctx, page.bg, full);
   else {

@@ -10,11 +10,12 @@ import { getImage, loadImage } from '../render/images.js';
 import { cropDialog, applyCrop } from '../dialogs/crop.js';
 import { h, iconEl } from '../ui/dom.js';
 import { openMenu, openPopover, closePopover } from '../ui/popover.js';
-import { INK_COLORS } from '../core/settings.js';
+import { INK_COLORS, timing } from '../core/settings.js';
 
 const HANDLE_R = 9; // radio visual (px de pantalla)
 const HANDLE_HIT = 22; // radio de impacto (px de pantalla)
 const ROTATE_OFFSET = 34;
+const HOLD_MOVE_PX = 8; // movimiento que aún cuenta como «lazo quieto»
 
 export class Selection {
   constructor(editor) {
@@ -433,6 +434,7 @@ export class LassoTool {
   begin(ctx) {
     this.ctx = ctx;
     this.mode = null;
+    this.stopHold();
     const sel = this.selection;
     const hit = sel.hitTest(ctx.viewer, ctx.clientX, ctx.clientY);
     if (hit && sel.sel.pageId === ctx.pageId) {
@@ -444,6 +446,27 @@ export class LassoTool {
     this.path = [ctx.x, ctx.y];
     this.startClient = { x: ctx.clientX, y: ctx.clientY };
     this.maxDist = 0;
+    // Lazo quieto sobre un hueco con algo copiado (o una captura): ofrecer «Pegar aquí» sin levantar.
+    if (sel.clipboard && !this.editor.isReadOnly()) {
+      this.holdTimer = setTimeout(() => this.onHold(), timing('radialMenuDelay'));
+    }
+  }
+
+  stopHold() {
+    clearTimeout(this.holdTimer);
+    this.holdTimer = null;
+    this.held = false;
+  }
+
+  onHold() {
+    this.holdTimer = null;
+    if (this.mode !== 'lasso' || this.maxDist >= HOLD_MOVE_PX || !this.selection.clipboard) return;
+    const { viewer, pageIndex } = this.ctx;
+    const pt = { x: this.path[0], y: this.path[1] };
+    this.held = true;
+    viewer.clearOverlay();
+    try { navigator.vibrate && navigator.vibrate(12); } catch {}
+    openMenu({ x: this.startClient.x, y: this.startClient.y }, [{ label: 'Pegar aquí', icon: 'clipboard', onClick: () => this.selection.paste(viewer, pageIndex, pt) }]);
   }
 
   startTransform(hit, ctx) {
@@ -480,6 +503,11 @@ export class LassoTool {
         if (Math.hypot(q.x - this.path[n - 2], q.y - this.path[n - 1]) * viewer.zoom >= 2) this.path.push(q.x, q.y);
       }
       this.maxDist = Math.max(this.maxDist, Math.hypot(p.x - this.path[0], p.y - this.path[1]) * viewer.zoom);
+      if (this.held) return; // ya salió «Pegar aquí»: el resto del gesto no hace nada
+      if (this.holdTimer && this.maxDist >= HOLD_MOVE_PX) {
+        clearTimeout(this.holdTimer);
+        this.holdTimer = null;
+      }
       this.drawLasso();
       return;
     }
@@ -528,7 +556,10 @@ export class LassoTool {
     const { viewer, pageId, pageIndex } = this.ctx;
     const sel = this.selection;
     if (this.mode === 'lasso') {
+      const held = this.held;
+      this.stopHold();
       viewer.clearOverlay();
+      if (held) return; // el menú «Pegar aquí» ya está abierto
       const page = viewer.session.getPageSync(pageId);
       if (!page) return;
       if (this.maxDist < 8) {
@@ -592,6 +623,7 @@ export class LassoTool {
   }
 
   cancel() {
+    this.stopHold();
     if (this.mode && this.mode !== 'lasso' && this.selection.sel) {
       this.ctx.viewer.setHidden(this.selection.sel.pageId, null);
       this.selection.redraw();

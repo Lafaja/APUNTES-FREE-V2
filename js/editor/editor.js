@@ -8,7 +8,7 @@ import { uid, debounce, nextFrame } from '../core/util.js';
 import { normalizeBg, pageSizeFor } from '../model/paper.js';
 import { DocumentViewer } from './viewer.js';
 import { InputController } from './input.js';
-import { PenTool, EraserTool, ShapeTool } from './tools.js';
+import { PenTool, EraserTool, ShapeTool, CaptureTool } from './tools.js';
 import { Guides, CompassTool } from './guides.js';
 import { Selection, LassoTool } from './selection.js';
 import { Toolbar } from './toolbar.js';
@@ -17,7 +17,7 @@ import { DocSearch } from './search.js';
 import { DocTabs } from './tabs.js';
 import { importImageFile, loadImage } from '../render/images.js';
 import { cropDialog } from '../dialogs/crop.js';
-import { updateThumbnail } from '../render/thumbs.js';
+import { updateThumbnail, renderPageImage, canvasToBlob } from '../render/thumbs.js';
 import { destPoint } from '../render/pdfnav.js';
 import { h, iconEl, $, clear } from '../ui/dom.js';
 import { icon } from '../ui/icons.js';
@@ -39,7 +39,8 @@ export class Editor {
       eraser: new EraserTool(this),
       lasso: new LassoTool(this, this.selection),
       shape: new ShapeTool(this),
-      compass: new CompassTool(this)
+      compass: new CompassTool(this),
+      capture: new CaptureTool(this)
     };
     this.toolbar = new Toolbar(this, $('#ed-tools'));
     this.radial = new RadialMenu(this);
@@ -928,6 +929,40 @@ export class Editor {
   // =====================================================================
   // Imágenes
   // =====================================================================
+
+  /**
+   * Captura de una zona de la página (herramienta «Captura»): se guarda como imagen en el
+   * portapapeles del lazo, lista para «Pegar aquí» (mantener quieto el lazo o tocar en vacío).
+   */
+  async finishCapture(viewer, pageId, rect, scale) {
+    const stop = toast('Capturando…', { duration: 0 });
+    let canvas = null;
+    try {
+      const page = await viewer.session.getPage(pageId);
+      if (!page) throw new Error('La página no está cargada');
+      canvas = await renderPageImage(page, page.w * scale, { region: rect });
+      // PNG para apuntes (trazos nítidos); JPEG si hay PDF o fotos (pesa mucho menos).
+      const photo = !!(page.pdf && page.pdf.blobId) || (page.images || []).length > 0;
+      const blob = await canvasToBlob(canvas, photo ? 'image/jpeg' : 'image/png', 0.92);
+      const { blobId } = await importImageFile(blob);
+      repo.pinnedBlobs.add(blobId); // que el recolector no la borre mientras espera a pegarse
+      this.selection.clipboard = {
+        strokes: [],
+        images: [{ id: uid('i'), blobId, x: rect.x, y: rect.y, w: rect.w, h: rect.h, rot: 0 }],
+        bbox: { minX: rect.x, minY: rect.y, maxX: rect.x + rect.w, maxY: rect.y + rect.h },
+        fromPage: pageId
+      };
+      stop();
+      this.setTool('lasso');
+      toast('Captura copiada · con el lazo, mantén quieto el lápiz donde quieras pegarla', { type: 'success', duration: 4000 });
+    } catch (err) {
+      console.error(err);
+      stop();
+      toast(`No se pudo hacer la captura: ${err.message || err}`, { type: 'error' });
+    } finally {
+      if (canvas) canvas.width = canvas.height = 0;
+    }
+  }
 
   insertImage() {
     if (!this.session || this.isReadOnly()) return;

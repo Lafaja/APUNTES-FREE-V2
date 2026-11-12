@@ -14,7 +14,8 @@ const TOOLS = [
   { id: 'eraser', icon: 'eraser', name: 'Borrador' },
   { id: 'lasso', icon: 'lasso', name: 'Lazo' },
   { id: 'shape', icon: 'shapes', name: 'Formas' },
-  { id: 'image', icon: 'image', name: 'Imagen' }
+  { id: 'image', icon: 'image', name: 'Imagen' },
+  { id: 'capture', icon: 'capture', name: 'Captura' }
 ];
 
 export class RadialMenu {

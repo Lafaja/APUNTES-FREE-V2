@@ -23,6 +23,7 @@ export const TOOL_BUTTONS = [
   { id: 'lasso', icon: 'lasso', name: 'Lazo', title: 'Lazo: seleccionar, mover y copiar' },
   { id: 'shape', icon: 'shapes', name: 'Formas', title: 'Formas (toca otra vez para ajustes)' },
   { id: 'image', icon: 'image', name: 'Imagen', title: 'Insertar imagen o foto' },
+  { id: 'capture', icon: 'capture', name: 'Captura', title: 'Captura: marca una zona y pégala con el lazo' },
   { id: 'instruments', icon: 'ruler', name: 'Instrumentos', title: 'Regla, escuadra, cartabón, transportador y compás' }
 ];
 const HL_SIZES = [10, 16, 24, 34];
@@ -231,6 +232,14 @@ export class Toolbar {
         }
         if (t.id === 'instruments') {
           this.openInstrumentsPanel(b);
+          return;
+        }
+        if (t.id === 'capture') {
+          if (ed.tool === 'capture') ed.setTool('pen');
+          else {
+            ed.setTool('capture');
+            ed.toast('Arrastra sobre la página para marcar la zona que quieres capturar', 'info');
+          }
           return;
         }
         if (ed.tool === t.id) {

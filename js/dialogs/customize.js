@@ -22,6 +22,7 @@ const INFO = {
   lasso: { name: 'Lazo', icon: 'lasso' },
   shape: { name: 'Formas', icon: 'shapes' },
   image: { name: 'Imagen', icon: 'image' },
+  capture: { name: 'Captura', icon: 'capture', sub: 'Marca una zona de la página y pégala con el lazo' },
   instruments: { name: 'Regla e instrumentos', icon: 'ruler' }
 };
 

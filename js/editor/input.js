@@ -380,7 +380,7 @@ export class InputController {
   /** Menú circular al mantener quieto el lápiz o el dedo que dibuja (no con el lazo). */
   watchRadialDraw(e) {
     const d = this.drawPointer;
-    if (!d || d.id !== e.pointerId || d.tool === this.editor.tools.lasso || d.tool === this.editor.tools.compass) return;
+    if (!d || d.id !== e.pointerId || d.tool === this.editor.tools.lasso || d.tool === this.editor.tools.compass || d.tool === this.editor.tools.capture) return;
     this.editor.radial.watch(e, () => {
       if (this.drawPointer !== d) return;
       this.cancelDraw();

@@ -44,17 +44,17 @@ const DEFAULT_KIT = {
 // 'presets' = los bolis guardados; 'sizes'/'colors' = los 3 grosores y 5 colores del modo por herramientas.
 export const LAYOUT_ITEMS = {
   toolbar: {
-    presets: ['presets', 'eraser', 'lasso', 'shape', 'image', 'instruments'],
-    kit: [...KIT_TYPES, 'sizes', 'colors', 'eraser', 'lasso', 'shape', 'image', 'instruments']
+    presets: ['presets', 'eraser', 'lasso', 'shape', 'image', 'capture', 'instruments'],
+    kit: [...KIT_TYPES, 'sizes', 'colors', 'eraser', 'lasso', 'shape', 'image', 'capture', 'instruments']
   },
   radial: {
-    presets: ['presets', 'eraser', 'lasso', 'shape', 'image', 'colors'],
+    presets: ['presets', 'eraser', 'lasso', 'shape', 'image', 'capture', 'colors'],
     // 'active' = la herramienta de escritura que tengas (bolígrafo, lápiz, subrayador…); 'dashes' = tipos de línea
-    kit: ['active', 'eraser', 'lasso', 'shape', ...KIT_TYPES, 'image', 'colors', 'sizes', 'dashes']
+    kit: ['active', 'eraser', 'lasso', 'shape', ...KIT_TYPES, 'image', 'capture', 'colors', 'sizes', 'dashes']
   }
 };
 // Ocultos de serie (se pueden activar en Ajustes → Barra y menú → Personalizar).
-const LAYOUT_OFF = { 'radial.presets': ['image'], 'radial.kit': [...KIT_TYPES, 'image'] };
+const LAYOUT_OFF = { 'radial.presets': ['image', 'capture'], 'radial.kit': [...KIT_TYPES, 'image', 'capture'] };
 
 export function defaultLayout(place, mode) {
   const off = LAYOUT_OFF[`${place}.${mode}`] || [];
